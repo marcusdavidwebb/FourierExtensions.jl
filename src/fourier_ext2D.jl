@@ -25,7 +25,7 @@ function FourierExtension2(f, Ω, n::Int; tol = 1e-8, oversamp::Real = 2.0)
     A = LinearMap(
         (output,x) -> fourier_ext_2D_A!(output, x, n, indsx, indsy, L, bfftplan, padded_tensor),
         (output,y) -> fourier_ext_2D_Astar!(output, y, n, indsx, indsy, L, bfftplan, padded_tensor),
-        M, N)
+        M, N; ismutating=true)
 
     coeffs = AZ_algorithm(A, A, b, rank_guess=rank_guess, tol=tol, maxiter=100) # Z = A for Fourier extensions
     FourierExtension2(Ω, reshape(coeffs,2n+1,2n+1)), A, b
@@ -87,9 +87,15 @@ function fourier_ext_2D_Astar!(output, v, n::Int, indsx::Vector{Int64}, indsy::V
     for i in 1:r
         bfftplan*view(padded_tensor, :, :, i)
     end
-    coeffs = conj.([padded_tensor[L-n+1:L,L-n+1:L,1:r] padded_tensor[L-n+1:L,1:n+1,1:r];
-                    padded_tensor[1:n+1,L-n+1:L,1:r]   padded_tensor[1:n+1,1:n+1,1:r]])
-    output[:] .= reshape(coeffs, (2n+1)^2, r)/L
+    d = reshape(output, 2n+1, 2n+1, r)
+    for i in 1:r
+        @views d[1:n,1:n,i] = padded_tensor[L-n+1:L,L-n+1:L,1:r]
+        @views d[1:n,n+1:2n+1] = padded_tensor[L-n+1:L,1:n+1,1:r]
+        @views d[n+1:2n+1,1:n] = padded_tensor[1:n+1,L-n+1:L,1:r]
+        @views d[n+1:2n+1,n+1:2n+1] = padded_tensor[1:n+1,1:n+1,1:r]
+    end
+    d .= conj.(d)/L
+    output
 end
 
 function grid_filter(xgrid::AbstractVector,ygrid::AbstractVector,Ω)
