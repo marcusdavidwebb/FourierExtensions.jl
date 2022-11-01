@@ -22,7 +22,10 @@ function FourierExtension2(f, Ω, n::Int; tol = 1e-8, oversamp::Real = 2.0)
     rank_guess = min(round(Int, 5*sqrt(N)*log10(N))+10, div(N,2))
     padded_tensor = Array{eltype(b),3}(undef, L, L, rank_guess)
     bfftplan = plan_bfft!(padded_tensor[:,:,1]) # note that fft = L * conj ∘ bfft ∘ conj
-    A = LinearMap(x -> fourier_ext_2D_A!(x,n,indsx,indsy,L,bfftplan,padded_tensor), y -> fourier_ext_2D_Astar!(y,n,indsx,indsy,L,bfftplan,padded_tensor), M, N)
+    A = LinearMap(
+        (output,x) -> fourier_ext_2D_A!(output, x, n, indsx, indsy, L, bfftplan, padded_tensor),
+        (output,y) -> fourier_ext_2D_Astar!(output, y, n, indsx, indsy, L, bfftplan, padded_tensor),
+        M, N)
 
     coeffs = AZ_algorithm(A, A, b, rank_guess=rank_guess, tol=tol, maxiter=100) # Z = A for Fourier extensions
     FourierExtension2(Ω, reshape(coeffs,2n+1,2n+1)), A, b
@@ -52,7 +55,7 @@ function FourierExtension2(f, Ω; tol=1e-8, oversamp::Real = 2.0, nmin::Int=8, n
     F
 end
 
-function fourier_ext_2D_A!(coef, n::Int, indsx::Vector{Int64}, indsy::Vector{Int64}, L::Int, bfftplan, padded_tensor::AbstractArray)
+function fourier_ext_2D_A!(output, coef, n::Int, indsx::Vector{Int64}, indsy::Vector{Int64}, L::Int, bfftplan, padded_tensor::AbstractArray)
     r = size(coef,2)
     c = reshape(coef, 2n+1, 2n+1, r)
     for i in 1:r
@@ -65,10 +68,15 @@ function fourier_ext_2D_A!(coef, n::Int, indsx::Vector{Int64}, indsy::Vector{Int
     for i in 1:r
         bfftplan*view(padded_tensor, :, :, i)
     end
-    [padded_tensor[indsx[k],indsy[k],j]/L for k=1:length(indsx), j=1:r]
+    for i in 1:r
+        for k in 1:length(indsx)
+            output[k,i] = padded_tensor[indsx[k],indsy[k],i]/L
+        end
+    end
+    output
 end
 
-function fourier_ext_2D_Astar!(v, n::Int, indsx::Vector{Int64}, indsy::Vector{Int64}, L::Int, bfftplan, padded_tensor::AbstractArray)
+function fourier_ext_2D_Astar!(output, v, n::Int, indsx::Vector{Int64}, indsy::Vector{Int64}, L::Int, bfftplan, padded_tensor::AbstractArray)
     r = size(v,2)
     padded_tensor[:,:,1:r] .= zero(eltype(padded_tensor))
     for k = 1:length(indsx)
@@ -81,7 +89,7 @@ function fourier_ext_2D_Astar!(v, n::Int, indsx::Vector{Int64}, indsy::Vector{In
     end
     coeffs = conj.([padded_tensor[L-n+1:L,L-n+1:L,1:r] padded_tensor[L-n+1:L,1:n+1,1:r];
                     padded_tensor[1:n+1,L-n+1:L,1:r]   padded_tensor[1:n+1,1:n+1,1:r]])
-    reshape(coeffs, (2n+1)^2, r)/L
+    output[:] .= reshape(coeffs, (2n+1)^2, r)/L
 end
 
 function grid_filter(xgrid::AbstractVector,ygrid::AbstractVector,Ω)

@@ -6,24 +6,24 @@ struct FourierExtension{T1,T2}
 end
 
 # Constructor
-function FourierExtension(f, n::Int; γ::Real=2.0, oversamp::Real = 2.0, old=false)
+function FourierExtension(f, n::Int; γ::Real=2.0, oversamp::Real = 2.0)
     m = ceil(Int, oversamp*n)
     L = ceil(Int, 2γ * m)
     N = 2n+1
     b = complex(f.((-m:m) * 2γ / L) / sqrt(L))
     A = LinearMap(x -> fourier_ext_A(x,n,m,L), y -> fourier_ext_Astar(y,n,m,L), 2m+1,N)
     rank_guess = min(ceil(Int, 8*log(N))+10, N)
-    coeffs = AZ_algorithm(A, A, b, rank_guess=rank_guess, tol=1e-14, maxiter=100, old=old)
+    coeffs = AZ_algorithm(A, A, b, rank_guess=rank_guess, tol=1e-14, maxiter=100)
     return FourierExtension(γ, coeffs)
 end
 
 # Adaptive Constructor
-function FourierExtension(f; γ::Real=2.0, oversamp::Real = 2.0, nmin::Int=32, nmax::Int=4096, old=false)
+function FourierExtension(f; γ::Real=2.0, oversamp::Real = 2.0, nmin::Int=32, nmax::Int=4096)
     n = nmin
     fval = f(0.34)
     F = FourierExtension(γ,[complex(fval)])
     while n <= nmax
-        F = FourierExtension(f, n, γ = γ, oversamp=oversamp, old=old)
+        F = FourierExtension(f, n, γ = γ; oversamp)
         grid,vals = grid_evaluate(F,round(Int,2*oversamp*n))
         fvals = f.(grid)
         fvalsnorm = norm(fvals)

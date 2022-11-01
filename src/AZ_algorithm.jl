@@ -1,9 +1,9 @@
 
-function AZ_algorithm(A::LinearMap, Z::LinearMap, b; rank_guess::Int=20, tol = 1e-12, maxiter::Int=100, old=false)
+function AZ_algorithm(A::LinearMap, Z::LinearMap, b; rank_guess::Int=20, tol = 1e-12, maxiter::Int=100)
     IminusAZstar = I - A*Z'
     AminusAZstarA = IminusAZstar*A
     x1 = low_rank_solve(AminusAZstarA, IminusAZstar*b, rank_guess, tol)
-    x2 = Matrix(Z'*(b-A*x1))[:]
+    x2 = Z'*(b-A*x1)
     return x1 + x2
 end
 
