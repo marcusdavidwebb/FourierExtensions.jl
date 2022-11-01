@@ -5,7 +5,7 @@ using LinearAlgebra
 using FFTW
 using Plots
 
-export FourierExtension
+export FourierExtension, FourierExtension2
 
 include("fourier_ext1D.jl")
 include("fourier_ext2D.jl")
