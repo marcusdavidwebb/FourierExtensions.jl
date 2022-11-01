@@ -1,12 +1,12 @@
 
 # Represents a function on [-1,1] by a Fourier series on [-γ,γ] where γ > 1
-struct FourierExtFun{T1,T2}
+struct FourierExtension{T1,T2}
     γ :: T1
     coeffs :: Vector{T2}
 end
 
 # Constructor
-function FourierExtFun(f, n::Int; γ::Real=2.0, oversamp::Real = 2.0, old=false)
+function FourierExtension(f, n::Int; γ::Real=2.0, oversamp::Real = 2.0, old=false)
     m = Integer(ceil(oversamp*n))
     L = Integer(ceil(2γ * m))
     N = 2n+1
@@ -14,30 +14,29 @@ function FourierExtFun(f, n::Int; γ::Real=2.0, oversamp::Real = 2.0, old=false)
     A = LinearMap(x -> fourier_ext_A(x,n,m,L), y -> fourier_ext_Astar(y,n,m,L), 2m+1,N)
     rank_guess = min(Integer(ceil(8*log(N)))+10, N)
     coeffs = AZ_algorithm(A, A, b, rank_guess=rank_guess, tol=1e-14, maxiter=100, old=old)
-    return FourierExtFun(γ, coeffs)
+    return FourierExtension(γ, coeffs)
 end
 
 # Adaptive Constructor
-function FourierExtFun(f; γ::Real=2.0, oversamp::Real = 2.0, nmin::Int=32, nmax::Int=4096, old=false)
+function FourierExtension(f; γ::Real=2.0, oversamp::Real = 2.0, nmin::Int=32, nmax::Int=4096, old=false)
     n = nmin
     fval = f(0.34)
-    F = FourierExtFun(γ,[complex(fval)])
+    F = FourierExtension(γ,[complex(fval)])
     while n <= nmax
-        F = FourierExtFun(f, n, γ = γ, oversamp=oversamp, old=old)
+        F = FourierExtension(f, n, γ = γ, oversamp=oversamp, old=old)
         grid,vals = grid_evaluate(F,Integer(round(2*oversamp*n)))
         fvals = f.(grid)
         fvalsnorm = norm(fvals)
-        # perform 3 checks to see if converged
-        if norm(F.coeffs)/fvalsnorm < 100
-            if norm(abs.(fvals - vals))/fvalsnorm < sqrt(n)*1e-14
-                if abs(F(0.34) - fval) < 1e-14
+        if norm(F.coeffs)/fvalsnorm < 100 # check coefficients are not too large to be stable
+            if norm(abs.(fvals - vals))/fvalsnorm < sqrt(n)*1e-14 # check residual
+                if abs(F(0.34) - fval) < 1e-14 # final check at a single "random" point
                     return F
                 end
             end
         end
         n *= 2
     end
-    @warn "Maximum number of coefficients "*string(length(F.coeffs))*" reached in constructing FourierExtFun. Try setting nmax higher."
+    @warn "Maximum number of coefficients "*string(length(F.coeffs))*" reached in constructing FourierExtension. Try setting nmax higher."
     return F
 end
 
@@ -45,7 +44,6 @@ function fourier_ext_A(x, n::Int, m::Int, L::Int)
     # Fast matrix vector product of Fourier LS collocation matrix
     # A_{j,k} = exp(2pi*i*j*k/L)/sqrt(L) for j = -m:m, k = -n:n
     # to the column vector x (of length 2n+1).
-    
     w = [x[n+1:2n+1,:]; zeros(complex(eltype(x)),L-2n-1,size(x,2)); x[1:n,:]]
     ifft!(w,1)
     return w[[end-m+1:end; 1:m+1],:] * sqrt(L)
@@ -55,17 +53,15 @@ function fourier_ext_Astar(y, n::Int, m::Int, L::Int)
     # Fast matrix vector product of adjoint of Fourier LS collocation matrix
     # A_{j,k} = exp(-2pi*i*j*k/L)/sqrt(L) for j = -n:n, k = -m:m
     # to the vector y (of length 2m+1).
-    
     w = [y[m+1:2m+1,:]; zeros(complex(eltype(y)),L-2m-1,size(y,2)); y[1:m,:]]
     fft!(w,1)
     return w[[L-n+1:L; 1:n+1],:] / sqrt(L)
 end
 
-function evaluate(F::FourierExtFun,x)
+function evaluate(F::FourierExtension,x)
     # Evaluates a Fourier extension [-1,1] ⊂ [-γ,γ]
     # with coefficients c at grid points x
     # vals = sum_{j=-n:n} c_j exp(π*i*j*x/γ)
-    
     z = exp.(π*1im*x/F.γ)
     N = length(F.coeffs)
     vals = F.coeffs[N]*ones(size(x))
@@ -76,9 +72,9 @@ function evaluate(F::FourierExtFun,x)
     return vals
 end
 
-(F::FourierExtFun)(x) = evaluate(F,x)
+(F::FourierExtension)(x) = evaluate(F,x)
 
-function grid_evaluate(F::FourierExtFun, m::Int)
+function grid_evaluate(F::FourierExtension, m::Int)
     # Evaluates a Fourier extension [-1,1] ⊂ [-γ,γ]
     # with coefficients c at grid points (-m:m)*2γ/L
     # vals(k) = sum_{j=-n:n} c_j exp(2pi*i*j*k/L), where L = ceil(2γm).
@@ -100,12 +96,12 @@ function grid_evaluate(F::FourierExtFun, m::Int)
     return grid, vals
 end
 
-function plot(F::FourierExtFun;args...)
+function Plots.plot(F::FourierExtension;args...)
     plot()
     plot!(F,args...)
 end
 
-function plot!(F::FourierExtFun;args...)
+function Plots.plot!(F::FourierExtension;args...)
     m = max(1000,4*length(F.coeffs))
     grid, vals = grid_evaluate(F,m)
     plot(grid,real(vals), args...)
