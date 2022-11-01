@@ -7,12 +7,12 @@ end
 
 # Constructor
 function FourierExtension(f, n::Int; γ::Real=2.0, oversamp::Real = 2.0, old=false)
-    m = Integer(ceil(oversamp*n))
-    L = Integer(ceil(2γ * m))
+    m = ceil(Int, oversamp*n)
+    L = ceil(Int, 2γ * m)
     N = 2n+1
     b = complex(f.((-m:m) * 2γ / L) / sqrt(L))
     A = LinearMap(x -> fourier_ext_A(x,n,m,L), y -> fourier_ext_Astar(y,n,m,L), 2m+1,N)
-    rank_guess = min(Integer(ceil(8*log(N)))+10, N)
+    rank_guess = min(ceil(Int, 8*log(N))+10, N)
     coeffs = AZ_algorithm(A, A, b, rank_guess=rank_guess, tol=1e-14, maxiter=100, old=old)
     return FourierExtension(γ, coeffs)
 end
@@ -24,7 +24,7 @@ function FourierExtension(f; γ::Real=2.0, oversamp::Real = 2.0, nmin::Int=32, n
     F = FourierExtension(γ,[complex(fval)])
     while n <= nmax
         F = FourierExtension(f, n, γ = γ, oversamp=oversamp, old=old)
-        grid,vals = grid_evaluate(F,Integer(round(2*oversamp*n)))
+        grid,vals = grid_evaluate(F,round(Int,2*oversamp*n))
         fvals = f.(grid)
         fvalsnorm = norm(fvals)
         if norm(F.coeffs)/fvalsnorm < 100 # check coefficients are not too large to be stable
@@ -78,8 +78,8 @@ function grid_evaluate(F::FourierExtension, m::Int)
     # Evaluates a Fourier extension [-1,1] ⊂ [-γ,γ]
     # with coefficients c at grid points (-m:m)*2γ/L
     # vals(k) = sum_{j=-n:n} c_j exp(2pi*i*j*k/L), where L = ceil(2γm).
-    
-    L = Integer(ceil(F.γ*2*m))
+
+    L = ceil(Int, F.γ*2*m)
     N = length(F.coeffs)
     n = div(N-1,2)
     if  L >= N

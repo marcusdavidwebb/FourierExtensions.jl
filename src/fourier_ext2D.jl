@@ -1,13 +1,13 @@
-struct FourierExtFun2{T}
+struct FourierExtension2{T}
     # γ :: T1
     Ω   # indicator function of Ω ⊂ [0,1] × [0,1]
     coeffs :: Matrix{T}
 end
 
-function FourierExtFun2(f, Ω, n::Int; tol = 1e-8, oversamp::Real = 2.0)
+function FourierExtension2(f, Ω, n::Int; tol = 1e-8, oversamp::Real = 2.0)
     # Constants
     N = (2n+1)^2
-    L = Integer(ceil(4*oversamp*n))
+    L = ceil(Int, 4*oversamp*n)
     xgrid = 0:1/L:1-1/L
     ygrid = copy(xgrid)
     indsx, indsy = grid_filter(xgrid, ygrid, Ω)
@@ -21,23 +21,23 @@ function FourierExtFun2(f, Ω, n::Int; tol = 1e-8, oversamp::Real = 2.0)
     end
 
     b = complex([f(xgrid[indsx[k]],ygrid[indsy[k]]) for k = 1:M]) / L
-    rank_guess = min(Integer(round(10*sqrt(N)*log10(N))+10), div(M,2))
+    rank_guess = min(round(Int, 10*sqrt(N)*log10(N))+10, div(M,2))
     padded_tensor = Array{eltype(b),3}(undef, L, L, rank_guess)
     bfftplan = plan_bfft!(padded_tensor[:,:,1])
     A = LinearMap(x -> fourier_ext_2D_A!(x,n,indsx,indsy,L,bfftplan,padded_tensor), y -> fourier_ext_2D_Astar!(y,n,indsx,indsy,L,bfftplan,padded_tensor), M, N)
 
     coeffs = AZ_algorithm(A, A, b, rank_guess=rank_guess, tol=tol, maxiter=100) # Z = A for Fourier extensions
-    return FourierExtFun2(Ω, reshape(coeffs,2n+1,2n+1))
+    return FourierExtension2(Ω, reshape(coeffs,2n+1,2n+1))
 end
 
 # Adaptive Constructor
-function FourierExtFun2(f, Ω; tol=1e-8, oversamp::Real = 2.0, nmin::Int=8, nmax::Int=32)
+function FourierExtension2(f, Ω; tol=1e-8, oversamp::Real = 2.0, nmin::Int=8, nmax::Int=32)
     n = nmin
     fval = f(0.51,0.49) # TODO: check at a point in Ω
-    F = FourierExtFun2(Ω,ones(complex(typeof(fval)),1,1))
+    F = FourierExtension2(Ω,ones(complex(typeof(fval)),1,1))
     while n <= nmax
-        F = FourierExtFun2(f, Ω, n, oversamp=oversamp)
-        indsx, indsy, vals = grid_evaluate(F, Ω, Integer(ceil(2*oversamp*n)))
+        F = FourierExtension2(f, Ω, n, oversamp=oversamp)
+        indsx, indsy, vals = grid_evaluate(F, Ω, ceil(Int, 2*oversamp*n))
         fvals = f.(indsx,indsy)
         fvalsnorm = norm(fvals)
         # perform 3 checks to see if converged
@@ -50,7 +50,7 @@ function FourierExtFun2(f, Ω; tol=1e-8, oversamp::Real = 2.0, nmin::Int=8, nmax
         end
         n *= 2
     end
-    @warn "Maximum number of coefficients "*string(length(F.coeffs))*" reached in constructing FourierExtFun2. Try setting nmax higher."
+    @warn "Maximum number of coefficients "*string(length(F.coeffs))*" reached in constructing FourierExtension2. Try setting nmax higher."
     return F
 end
 
@@ -100,11 +100,11 @@ function grid_filter(xgrid::AbstractVector,ygrid::AbstractVector,Ω)
     return indsx, indsy
 end
 
-function evaluate(F::FourierExtFun2,x,y)
-    # Evaluates a Fourier extension 
+function evaluate(F::FourierExtension2,x,y)
+    # Evaluates a Fourier extension
     # with coefficients c at points (x,y) ∈ [0,1]x[0,1]
     # vals_k = sum_{j=-nx:nx}sum_{l=-ny:ny} c_{j,l} exp(2pi*i*(j*x_k + l*y_k))
-          
+
     zx = exp.(2π*im*x)
     zy = exp.(2π*im*y)
     Nx,Ny = size(F.coeffs)
@@ -123,13 +123,13 @@ function evaluate(F::FourierExtFun2,x,y)
     return vals
 end
 
-(F::FourierExtFun2)(x,y) = evaluate(F,x,y)
+(F::FourierExtension2)(x,y) = evaluate(F,x,y)
 
-function grid_evaluate(F::FourierExtFun2{T}, Ω, L::Int) where T
+function grid_evaluate(F::FourierExtension2{T}, Ω, L::Int) where T
     # Evaluates a Fourier extension Omega \subset [0,1]x[0,1]
     # with coefficients c at the grid points Omega ∩ ((0:L)/L)×((0:L)/L)
     # vals_l = sum_{k,j=-n:n} c(k,j) exp(2pi*i*(k*x_l + j*y_l))
-    
+
     n = div(size(F.coeffs,1)-1,2)
     if L >= 2n+1
         paddedmat = [F.coeffs[n+1:2n+1,n+1:2n+1] zeros(T,n+1,L-(2n+1)) F.coeffs[n+1:2n+1,1:n];
@@ -150,10 +150,10 @@ function grid_evaluate(F::FourierExtFun2{T}, Ω, L::Int) where T
 end
 
 
-function contourf(F::FourierExtFun2{T}, Ω, L) where T
+function contourf(F::FourierExtension2{T}, Ω, L) where T
 
     indsx,indsy,vals = grid_eval(F, Ω, L)
-    
+
     M = length(indsx)
     if norm(imag(vals),Inf) < 1e-4
         valsmasked = Matrix{real(T)}(undef,L,L)*NaN
