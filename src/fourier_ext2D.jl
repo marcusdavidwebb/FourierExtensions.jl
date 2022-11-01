@@ -20,14 +20,14 @@ function FourierExtension2(f, Ω, n::Int; tol = 1e-8, oversamp::Real = 2.0)
         M = length(indsx)
     end
 
-    b = complex([f(xgrid[indsx[k]],ygrid[indsy[k]]) for k = 1:M]) / L
-    rank_guess = min(round(Int, 10*sqrt(N)*log10(N))+10, div(M,2))
+    b = complex([f(xgrid[indsx[k]],ygrid[indsy[k]]) for k = 1:M])
+    rank_guess = min(round(Int, 5*sqrt(N)*log10(N))+10, div(N,2))
     padded_tensor = Array{eltype(b),3}(undef, L, L, rank_guess)
-    bfftplan = plan_bfft!(padded_tensor[:,:,1])
+    bfftplan = plan_bfft!(padded_tensor,1:2) # note that fft = L * conj ∘ bfft ∘ conj
     A = LinearMap(x -> fourier_ext_2D_A!(x,n,indsx,indsy,L,bfftplan,padded_tensor), y -> fourier_ext_2D_Astar!(y,n,indsx,indsy,L,bfftplan,padded_tensor), M, N)
 
     coeffs = AZ_algorithm(A, A, b, rank_guess=rank_guess, tol=tol, maxiter=100) # Z = A for Fourier extensions
-    return FourierExtension2(Ω, reshape(coeffs,2n+1,2n+1))
+    return FourierExtension2(Ω, reshape(coeffs,2n+1,2n+1)), A, b
 end
 
 # Adaptive Constructor
@@ -60,12 +60,7 @@ function fourier_ext_2D_A!(c, n::Int, indsx::Vector{Int64}, indsy::Vector{Int64}
     padded_tensor[:,:,1:r] = [c[n+1:2n+1,n+1:2n+1,:] zeros(T,n+1,L-(2n+1),r) c[n+1:2n+1,1:n,:];
                                                      zeros(T,L-(2n+1),L,r);
                               c[1:n,n+1:2n+1,:]      zeros(T,n,L-(2n+1),r)   c[1:n,1:n,:]]
-    print("A norm: ")
-    print(norm(padded_tensor[:,:,1:r]))
-    println()
-    for j = 1:r
-        bfftplan*padded_tensor[:,:,j]
-    end
+    bfftplan*padded_tensor
     vals = [padded_tensor[indsx[k],indsy[k],j] for k=1:length(indsx), j=1:r]
     return vals
 end
@@ -76,9 +71,7 @@ function fourier_ext_2D_Astar!(v, n::Int, indsx::Vector{Int64}, indsy::Vector{In
     for k = 1:length(indsx)
         padded_tensor[indsx[k],indsy[k],1:r] = conj.(v[k,:])
     end
-    for j = 1:r
-        bfftplan*padded_tensor[:,:,j] # note that fft = L * conj ∘ bfft ∘ conj
-    end
+    bfftplan*padded_tensor 
     coeffs = conj.([padded_tensor[L-n+1:L,L-n+1:L,1:r] padded_tensor[L-n+1:L,1:n+1,1:r];
                     padded_tensor[1:n+1,L-n+1:L,1:r]   padded_tensor[1:n+1,1:n+1,1:r]])
     return reshape(coeffs, (2n+1)^2, r)
