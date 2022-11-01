@@ -1,6 +1,7 @@
 module FourierExtensions
 
 using LinearMaps
+using FFTW
 
 include("fourier_ext1D.jl")
 include("fourier_ext2D.jl")
