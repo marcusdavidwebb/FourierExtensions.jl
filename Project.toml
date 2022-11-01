@@ -2,3 +2,6 @@ name = "FourierExtensions"
 uuid = "daf60a38-cf02-4c5a-9837-c61d1e95a935"
 authors = ["Marcus Webb <marcusdavidwebb@gmail.com>"]
 version = "0.1.0"
+
+[deps]
+LinearMaps = "7a12625a-238d-50fd-b39a-03d52299707e"
