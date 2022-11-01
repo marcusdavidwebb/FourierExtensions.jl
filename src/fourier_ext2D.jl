@@ -1,5 +1,4 @@
 struct FourierExtension2{T}
-    # γ :: T1
     Ω   # indicator function of Ω ⊂ [0,1] × [0,1]
     coeffs :: Matrix{T}
 end
