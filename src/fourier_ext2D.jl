@@ -82,9 +82,9 @@ function (F::FourierExtension2{T})(x,y) where T
     val
 end
 
-function grid_eval(F::FourierExtension2{T}, Ω, L::Int) where T
-    # Evaluates a Fourier extension Ω ⊂ [0,1]x[0,1]
-    # with coefficients c at the grid points Ω ∩ ((0:L)/L)×((0:L)/L)
+function grid_eval(F::FourierExtension2{T}, L::Int) where T
+    # Evaluates a Fourier extension F.Ω ⊂ [0,1]x[0,1]
+    # with coefficients F.coeffs at the grid points F.Ω ∩ ((0:L)/L)×((0:L)/L)
     # vals_l = sum_{k,j=-n:n} c(k,j) exp(2pi*i*(k*x_l + j*y_l))
     n = div(size(F.coeffs,1),2)
     padded_mat = zeros(T,L,L)
@@ -99,14 +99,14 @@ function grid_eval(F::FourierExtension2{T}, Ω, L::Int) where T
         end
     end
     bfft!(padded_mat)
-    indsx, indsy = grid_filter(0:1/L:1L, 0:1/L:1, Ω)
+    indsx, indsy = grid_filter(0:1/L:1L, 0:1/L:1, F.Ω)
     vals = [padded_mat[indsx[k],indsy[k]] for k ∈ eachindex(indsx)]
     indsx, indsy, vals
 end
 
 
-function Plots.contourf(F::FourierExtension2{T}, Ω, L) where T
-    indsx,indsy,vals = grid_eval(F, Ω, L)
+function Plots.contourf(F::FourierExtension2{T}, L) where T
+    indsx,indsy,vals = grid_eval(F, L)
     M = length(indsx)
     if norm(imag(vals),Inf) < 1e-4
         valsmasked = Matrix{real(T)}(undef,L,L)*NaN
