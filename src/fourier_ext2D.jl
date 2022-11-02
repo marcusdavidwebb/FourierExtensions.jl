@@ -20,13 +20,12 @@ function FourierExtension2(f, Ω, n::Int; tol = 1e-8, oversamp::Real = 2.0)
     end
     b = complex([f(xgrid[indsx[k]],ygrid[indsy[k]]) for k = 1:M])/L
     rank_guess = min(round(Int, 5*sqrt(N)*log10(N))+10, div(N,2))
-    padded_tensor = Matrix{eltype(b)}(undef, L, L)
-    bfftplan = plan_bfft!(padded_tensor) # note that fft = L * conj ∘ bfft ∘ conj
+    padded_data = Matrix{eltype(b)}(undef, L, L)
+    bfftplan = plan_bfft!(padded_data) # note that fft = L * conj ∘ bfft ∘ conj
     A = LinearMap(
-        (output,x) -> fourier_ext_2D_A!(output, x, n, indsx, indsy, L, bfftplan, padded_tensor),
-        (output,y) -> fourier_ext_2D_Astar!(output, y, n, indsx, indsy, L, bfftplan, padded_tensor),
+        (output,x) -> fourier_ext_2D_A!(output, x, n, indsx, indsy, L, bfftplan, padded_data),
+        (output,y) -> fourier_ext_2D_Astar!(output, y, n, indsx, indsy, L, bfftplan, padded_data),
         M, N; ismutating=true)
-
     coeffs = AZ_algorithm(A, A, b, rank_guess=rank_guess, tol=tol, maxiter=100) # Z = A for Fourier extensions
     FourierExtension2(Ω, reshape(coeffs,2n+1,2n+1)), A, b
 end
@@ -55,34 +54,31 @@ function FourierExtension2(f, Ω; tol=1e-8, oversamp::Real = 2.0, nmin::Int=8, n
     F
 end
 
-function fourier_ext_2D_A!(output, coef, n::Int, indsx::Vector{Int64}, indsy::Vector{Int64}, L::Int, bfftplan, padded_tensor::AbstractArray)
+function fourier_ext_2D_A!(output, coef, n::Int, indsx::Vector{Int64}, indsy::Vector{Int64}, L::Int, bfftplan, padded_data::AbstractArray)
     c = reshape(coef, 2n+1, 2n+1)
-    @views padded_tensor[:,:] .= 0
-    @views padded_tensor[1:n+1,1:n+1] = c[n+1:2n+1,n+1:2n+1]
-    @views padded_tensor[1:n+1,L-n+1:L] = c[n+1:2n+1,1:n]
-    @views padded_tensor[L-n+1:L,1:n+1] = c[1:n,n+1:2n+1]
-    @views padded_tensor[L-n+1:L,L-n+1:L] = c[1:n,1:n]
-
-    bfftplan*padded_tensor
+    @views padded_data[:,:] .= 0
+    @views padded_data[1:n+1,1:n+1] = c[n+1:2n+1,n+1:2n+1]
+    @views padded_data[1:n+1,L-n+1:L] = c[n+1:2n+1,1:n]
+    @views padded_data[L-n+1:L,1:n+1] = c[1:n,n+1:2n+1]
+    @views padded_data[L-n+1:L,L-n+1:L] = c[1:n,1:n]
+    bfftplan*padded_data
     for k in 1:length(indsx)
-        output[k] = padded_tensor[indsx[k],indsy[k]]/L
+        output[k] = padded_data[indsx[k],indsy[k]]/L
     end
     output
 end
 
-function fourier_ext_2D_Astar!(output, v, n::Int, indsx::Vector{Int64}, indsy::Vector{Int64}, L::Int, bfftplan, padded_tensor::AbstractArray)
-    padded_tensor .= 0
+function fourier_ext_2D_Astar!(output, v, n::Int, indsx::Vector{Int64}, indsy::Vector{Int64}, L::Int, bfftplan, padded_data::AbstractArray)
+    padded_data .= 0
     for k = 1:length(indsx)
-        padded_tensor[indsx[k],indsy[k]] = conj(v[k])
+        padded_data[indsx[k],indsy[k]] = conj(v[k])
     end
-
-    bfftplan*padded_tensor
-
+    bfftplan*padded_data
     d = reshape(output, 2n+1, 2n+1)
-    @views d[1:n,1:n] = padded_tensor[L-n+1:L,L-n+1:L]
-    @views d[1:n,n+1:2n+1] = padded_tensor[L-n+1:L,1:n+1]
-    @views d[n+1:2n+1,1:n] = padded_tensor[1:n+1,L-n+1:L]
-    @views d[n+1:2n+1,n+1:2n+1] = padded_tensor[1:n+1,1:n+1]
+    @views d[1:n,1:n] = padded_data[L-n+1:L,L-n+1:L]
+    @views d[1:n,n+1:2n+1] = padded_data[L-n+1:L,1:n+1]
+    @views d[n+1:2n+1,1:n] = padded_data[1:n+1,L-n+1:L]
+    @views d[n+1:2n+1,n+1:2n+1] = padded_data[1:n+1,1:n+1]
     d .= conj.(d)/L
     output
 end
