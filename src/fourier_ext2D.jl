@@ -6,34 +6,27 @@ end
 function FourierExtension2(f, Ω, n::Int; tol = 1e-8, oversamp = 2.0)
     N = (2n+1)^2
     L = ceil(Int, 4*oversamp*n)
-    xgrid = 0:1/L:1-1/L
-    ygrid = copy(xgrid)
-    indsx, indsy = grid_filter(xgrid, ygrid, Ω)
-    # grid, gridrefs = grid_mask(L, L, Ω)
-    # M = length(gridrefs)
-
-    M = length(indsx)
+    x_grid, y_grid, gridrefs = grid_mask(L, L, Ω)
+    M = length(gridrefs)
     while M < oversamp*N
         L *= 2
-        xgrid = 0:1/L:1-1/L
-        ygrid = copy(xgrid)
-        indsx, indsy = grid_filter(xgrid, ygrid, Ω)
-        M = length(indsx)
+        x_grid, y_grid, gridrefs = grid_mask(L, L, Ω)
+        M = length(gridrefs)
     end
-    b = complex([f(xgrid[indsx[k]],ygrid[indsy[k]]) for k = 1:M])/L
-    rank_guess = min(round(Int, 5*sqrt(N)*log10(N))+10, div(N,2))
+    b = complex(f.(x_grid,y_grid')[gridrefs])/L
     padded_data = Matrix{eltype(b)}(undef, L, L)
     ifftplan! = plan_ifft!(padded_data)
     fftplan! = plan_fft!(padded_data)
     A = LinearMap(
-        (output,x) -> fourier_ext_2D_A!(output, x, n, indsx, indsy, L, ifftplan!, padded_data),
-        (output,y) -> fourier_ext_2D_Astar!(output, y, n, indsx, indsy, L, fftplan!, padded_data),
+        (output,x) -> fourier_ext_2D_A!(output, x, n, gridrefs, L, ifftplan!, padded_data),
+        (output,y) -> fourier_ext_2D_Astar!(output, y, n, gridrefs, L, fftplan!, padded_data),
         M, N; ismutating=true)
-    coeffs = AZ_algorithm(A, A, b, rank_guess=rank_guess, tol=tol) # Z = A for Fourier extensions
+    rank_guess = min(round(Int, 5*sqrt(N)*log10(N))+10, div(N,2))
+    coeffs = AZ_algorithm(A, A, b; rank_guess, tol) # Z = A for Fourier extensions
     FourierExtension2(Ω, reshape(coeffs,2n+1,2n+1)), A, b
 end
 
-function fourier_ext_2D_A!(output, coef, n::Int, indsx::Vector{Int64}, indsy::Vector{Int64}, L::Int, ifftplan!, padded_data::AbstractArray)
+function fourier_ext_2D_A!(output, coef, n::Int, gridrefs, L::Int, ifftplan!, padded_data::AbstractArray)
     c = reshape(coef, 2n+1, 2n+1)
     padded_data .= 0
     @views padded_data[1:n+1,1:n+1] = c[n+1:2n+1,n+1:2n+1]
@@ -41,20 +34,13 @@ function fourier_ext_2D_A!(output, coef, n::Int, indsx::Vector{Int64}, indsy::Ve
     @views padded_data[L-n+1:L,1:n+1] = c[1:n,n+1:2n+1]
     @views padded_data[L-n+1:L,L-n+1:L] = c[1:n,1:n]
     ifftplan!*padded_data
-    for k ∈ eachindex(indsx)
-        output[k] = padded_data[indsx[k],indsy[k]]*L
-    end
-    # for k in 1:length(gridrefs)
-    #     output[k] = padded_tensor[gridrefs[k]]/L
-    # end
+    @views output .= padded_data[gridrefs].*L
     output
 end
 
-function fourier_ext_2D_Astar!(output, v, n::Int, indsx::Vector{Int}, indsy::Vector{Int}, L::Int, fftplan!, padded_data::AbstractArray)
+function fourier_ext_2D_Astar!(output, v, n::Int, gridrefs, L::Int, fftplan!, padded_data::AbstractArray)
     padded_data .= 0
-    for k ∈ eachindex(indsx)
-        padded_data[indsx[k],indsy[k]] = v[k]/L
-    end
+    @views padded_data[gridrefs] .= v./L
     fftplan!*padded_data
     d = reshape(output, 2n+1, 2n+1)
     @views d[1:n,1:n] = padded_data[L-n+1:L,L-n+1:L]
@@ -71,10 +57,9 @@ that belong to a domain, defined by the characteristic function `Ω`.
 function grid_mask(L1, L2, Ω)
     x_grid = (0:L1-1)/L1
     y_grid = (0:L2-1)/L2
-    grid = [(x,y) for x in x_grid, y in x_grid]
-    Z = Ω.(grid)
+    Z = Ω.(x_grid,y_grid')
     gridrefs = findall(Z)
-    grid, gridrefs
+    x_grid, y_grid, gridrefs
 end
 
 function grid_filter(xgrid::AbstractVector,ygrid::AbstractVector,Ω)
