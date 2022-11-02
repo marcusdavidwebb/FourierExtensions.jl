@@ -9,6 +9,9 @@ function FourierExtension2(f, Ω, n::Int; tol = 1e-8, oversamp = 2.0)
     xgrid = 0:1/L:1-1/L
     ygrid = copy(xgrid)
     indsx, indsy = grid_filter(xgrid, ygrid, Ω)
+    # grid, gridrefs = grid_mask(L, L, Ω)
+    # M = length(gridrefs)
+
     M = length(indsx)
     while M < oversamp*N
         L *= 2
@@ -41,6 +44,9 @@ function fourier_ext_2D_A!(output, coef, n::Int, indsx::Vector{Int64}, indsy::Ve
     for k ∈ eachindex(indsx)
         output[k] = padded_data[indsx[k],indsy[k]]*L
     end
+    # for k in 1:length(gridrefs)
+    #     output[k] = padded_tensor[gridrefs[k]]/L
+    # end
     output
 end
 
@@ -56,6 +62,19 @@ function fourier_ext_2D_Astar!(output, v, n::Int, indsx::Vector{Int}, indsy::Vec
     @views d[n+1:2n+1,1:n] = padded_data[1:n+1,L-n+1:L]
     @views d[n+1:2n+1,n+1:2n+1] = padded_data[1:n+1,1:n+1]
     output
+end
+
+"""
+Compute the subset of an `L1 × L2` regular grid consisting of points
+that belong to a domain, defined by the characteristic function `Ω`.
+"""
+function grid_mask(L1, L2, Ω)
+    x_grid = (0:L1-1)/L1
+    y_grid = (0:L2-1)/L2
+    grid = [(x,y) for x in x_grid, y in x_grid]
+    Z = Ω.(grid)
+    gridrefs = findall(Z)
+    grid, gridrefs
 end
 
 function grid_filter(xgrid::AbstractVector,ygrid::AbstractVector,Ω)
