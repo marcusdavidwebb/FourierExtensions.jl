@@ -1,5 +1,5 @@
 
-function AZ_algorithm(A::LinearMap, Z::LinearMap, b; rank_guess::Int=20, tol = 1e-12)
+function AZ_algorithm(A::LinearMap, Z::LinearMap, b; rank_guess::Int=20, tol=1e-12)
     IminusAZstar = I - A*Z'
     AminusAZstarA = IminusAZstar*A
     x1 = low_rank_solve(AminusAZstarA, IminusAZstar*b, rank_guess, tol)
@@ -7,10 +7,10 @@ function AZ_algorithm(A::LinearMap, Z::LinearMap, b; rank_guess::Int=20, tol = 1
     return x1 + x2
 end
 
-function low_rank_solve(A::LinearMap, b, rank_guess::Int=20, tol=1e-14)
+function low_rank_solve(A::LinearMap, b, rank_guess::Int=20, tol=1e-12)
     N = size(A,2)
     W = randn(eltype(b),N,min(rank_guess,N))
-    return W * (Matrix(A*W) \ b)
+    return W * LAPACK.gelsy!(Matrix(A*W), b, tol)[1]
 end
 
 #Solves a low rank system using adaptively growing random sketches and a pivoted QR solve
