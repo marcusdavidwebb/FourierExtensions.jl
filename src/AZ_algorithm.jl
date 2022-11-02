@@ -1,5 +1,5 @@
 
-function AZ_algorithm(A::LinearMap, Z::LinearMap, b; rank_guess::Int=20, tol = 1e-12, maxiter::Int=100)
+function AZ_algorithm(A::LinearMap, Z::LinearMap, b; rank_guess::Int=20, tol = 1e-12)
     IminusAZstar = I - A*Z'
     AminusAZstarA = IminusAZstar*A
     x1 = low_rank_solve(AminusAZstarA, IminusAZstar*b, rank_guess, tol)

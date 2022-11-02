@@ -26,7 +26,7 @@ function FourierExtension2(f, Ω, n::Int; tol = 1e-8, oversamp = 2.0)
         (output,x) -> fourier_ext_2D_A!(output, x, n, indsx, indsy, L, ifftplan!, padded_data),
         (output,y) -> fourier_ext_2D_Astar!(output, y, n, indsx, indsy, L, fftplan!, padded_data),
         M, N; ismutating=true)
-    coeffs = AZ_algorithm(A, A, b, rank_guess=rank_guess, tol=tol, maxiter=100) # Z = A for Fourier extensions
+    coeffs = AZ_algorithm(A, A, b, rank_guess=rank_guess, tol=tol) # Z = A for Fourier extensions
     FourierExtension2(Ω, reshape(coeffs,2n+1,2n+1)), A, b
 end
 
