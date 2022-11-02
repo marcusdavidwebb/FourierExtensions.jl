@@ -3,8 +3,7 @@ struct FourierExtension2{T}
     coeffs :: Matrix{T}
 end
 
-function FourierExtension2(f, Ω, n::Int; tol = 1e-8, oversamp::Real = 2.0)
-    # Constants
+function FourierExtension2(f, Ω, n::Int; tol = 1e-8, oversamp = 2.0)
     N = (2n+1)^2
     L = ceil(Int, 4*oversamp*n)
     xgrid = 0:1/L:1-1/L
@@ -31,7 +30,7 @@ function FourierExtension2(f, Ω, n::Int; tol = 1e-8, oversamp::Real = 2.0)
 end
 
 # Adaptive Constructor
-function FourierExtension2(f, Ω; tol=1e-8, oversamp::Real = 2.0, nmin::Int=8, nmax::Int=32)
+function FourierExtension2(f, Ω; tol=1e-8, oversamp = 2.0, nmin::Int=8, nmax::Int=32)
     n = nmin
     fval = f(0.51,0.49) # TODO: check at a point in Ω
     F = FourierExtension2(Ω,ones(complex(typeof(fval)),1,1))
@@ -40,10 +39,9 @@ function FourierExtension2(f, Ω; tol=1e-8, oversamp::Real = 2.0, nmin::Int=8, n
         indsx, indsy, vals = grid_evaluate(F, Ω, ceil(Int, 2*oversamp*n))
         fvals = f.(indsx,indsy)
         fvalsnorm = norm(fvals)
-        # perform 3 checks to see if converged
-        if norm(F.coeffs)/fvalsnorm < 100
-            if norm(abs.(fvals - vals))/fvalsnorm < 10*tol
-                if abs(F(0.51,0.49) - fval) < 10*tol
+        if norm(F.coeffs)/fvalsnorm < 100 # check coefficients are not too large to be stable
+            if norm(abs.(fvals - vals))/fvalsnorm < 10*tol # check residual
+                if abs(F(0.51,0.49) - fval) < 10*tol # final check at a single "random" point
                     F
                 end
             end
@@ -68,7 +66,7 @@ function fourier_ext_2D_A!(output, coef, n::Int, indsx::Vector{Int64}, indsy::Ve
     output
 end
 
-function fourier_ext_2D_Astar!(output, v, n::Int, indsx::Vector{Int64}, indsy::Vector{Int64}, L::Int, bfftplan, padded_data::AbstractArray)
+function fourier_ext_2D_Astar!(output, v, n::Int, indsx::Vector{Int}, indsy::Vector{Int}, L::Int, bfftplan, padded_data::AbstractArray)
     padded_data .= 0
     for k = 1:length(indsx)
         padded_data[indsx[k],indsy[k]] = conj(v[k])
@@ -84,7 +82,7 @@ function fourier_ext_2D_Astar!(output, v, n::Int, indsx::Vector{Int64}, indsy::V
 end
 
 function grid_filter(xgrid::AbstractVector,ygrid::AbstractVector,Ω)
-    indsx = Vector{Int64}(undef,0)
+    indsx = Vector{Int}(undef,0)
     indsy = copy(indsx)
     nx = length(xgrid)
     ny = length(ygrid)
@@ -100,10 +98,8 @@ function grid_filter(xgrid::AbstractVector,ygrid::AbstractVector,Ω)
 end
 
 function evaluate(F::FourierExtension2,x,y)
-    # Evaluates a Fourier extension
-    # with coefficients c at points (x,y) ∈ [0,1]x[0,1]
+    # Evaluates a Fourier extension with coefficients c at points (x,y) ∈ [0,1]x[0,1]
     # vals_k = sum_{j=-nx:nx}sum_{l=-ny:ny} c_{j,l} exp(2pi*i*(j*x_k + l*y_k))
-
     zx = exp.(2π*im*x)
     zy = exp.(2π*im*y)
     Nx,Ny = size(F.coeffs)
@@ -149,9 +145,7 @@ end
 
 
 function contourf(F::FourierExtension2{T}, Ω, L) where T
-
     indsx,indsy,vals = grid_eval(F, Ω, L)
-
     M = length(indsx)
     if norm(imag(vals),Inf) < 1e-4
         valsmasked = Matrix{real(T)}(undef,L,L)*NaN
