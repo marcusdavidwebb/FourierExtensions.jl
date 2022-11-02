@@ -9,20 +9,19 @@ end
 
 function low_rank_solve(A::LinearMap, b, rank_guess::Int=20, tol=1e-12)
     N = size(A,2)
-    W = randn(eltype(b),N,min(rank_guess,N))
+    W = rand(complex([-1,1]),N,min(rank_guess,N))
     return W * LAPACK.gelsy!(Matrix(A*W), b, tol)[1]
 end
 
 #Solves a low rank system using adaptively growing random sketches and a pivoted QR solve
 # function low_rank_solve(A::LinearMap, b, rank_guess::Int=20, tol=1e-14)
 #     M, N = size(A)
-#     extra_cols = 10
-#     R = min(rank_guess,N-extra_cols)
+#     R = min(rank_guess,N)
 #     W = randn(eltype(b),N,R)
 #     AW = Matrix(A*W)
 #     svals = svdvals!(AW)
 #     new_rank_guess = max(findlast(t->(t>tol*svals[1]),svals),1)
-#     while (R - new_rank_guess < extra_cols) && (new_rank_guess + extra_cols < N)
+#     while (R < new_rank_guess) && (new_rank_guess < N)
 #         Wadd = randn(eltype(b),N,R)
 #         W = [W Wadd]
 #         AW = [AW Matrix(A*Wadd)]
@@ -30,14 +29,14 @@ end
 #         svals = svdvals!(AW)
 #         new_rank_guess = max(findlast(t->(t>tol*svals[1]),svals),1)
 #     end
-#     extra_needed = new_rank_guess + extra_cols - R
+#     extra_needed = new_rank_guess - R
 #     if extra_needed > 0
 #         Wadd = randn(eltype(b),N,extra_needed)
 #         W = [W Wadd]
 #         AW = [AW Matrix(A*Wadd)]
 #     else
-#         W = W[1:N,1:new_rank_guess+extra_cols]
-#         AW = AW[1:M,1:new_rank_guess+extra_cols]
+#         W = W[1:N,1:new_rank_guess]
+#         AW = AW[1:M,1:new_rank_guess]
 #     end
-#     return W * (qr!(AW) \ b)
+#     return W * LAPACK.gelsy!(Matrix(A*W), b, tol)[1]
 # end
