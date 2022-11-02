@@ -29,29 +29,6 @@ function FourierExtension2(f, Ω, n::Int; tol = 1e-8, oversamp = 2.0)
     FourierExtension2(Ω, reshape(coeffs,2n+1,2n+1)), A, b
 end
 
-# Adaptive Constructor
-function FourierExtension2(f, Ω; tol=1e-8, oversamp = 2.0, nmin::Int=8, nmax::Int=32)
-    n = nmin
-    fval = f(0.51,0.49) # TODO: check at a point in Ω
-    F = FourierExtension2(Ω,ones(complex(typeof(fval)),1,1))
-    while n <= nmax
-        F = FourierExtension2(f, Ω, n, oversamp=oversamp)
-        indsx, indsy, vals = grid_evaluate(F, Ω, ceil(Int, 2*oversamp*n))
-        fvals = f.(indsx,indsy)
-        fvalsnorm = norm(fvals)
-        if norm(F.coeffs)/fvalsnorm < 100 # check coefficients are not too large to be stable
-            if norm(abs.(fvals - vals))/fvalsnorm < 10*tol # check residual
-                if abs(F(0.51,0.49) - fval) < 10*tol # final check at a single "random" point
-                    F
-                end
-            end
-        end
-        n *= 2
-    end
-    @warn "Maximum number of coefficients "*string(length(F.coeffs))*" reached in constructing FourierExtension2. Try setting nmax higher."
-    F
-end
-
 function fourier_ext_2D_A!(output, coef, n::Int, indsx::Vector{Int64}, indsy::Vector{Int64}, L::Int, bfftplan, padded_data::AbstractArray)
     c = reshape(coef, 2n+1, 2n+1)
     @views padded_data[:,:] .= 0
