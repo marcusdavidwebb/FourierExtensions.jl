@@ -97,24 +97,15 @@ function grid_filter(xgrid::AbstractVector,ygrid::AbstractVector,Ω)
     indsx, indsy
 end
 
-function evaluate(F::FourierExtension2,x,y)
+function evaluate(F::FourierExtension2{T}, x, y) where T
     # Evaluates a Fourier extension with coefficients c at points (x,y) ∈ [0,1]x[0,1]
     # vals_k = sum_{j=-nx:nx}sum_{l=-ny:ny} c_{j,l} exp(2pi*i*(j*x_k + l*y_k))
-    zx = exp.(2π*im*x)
-    zy = exp.(2π*im*y)
-    Nx,Ny = size(F.coeffs)
-    vals = F.coeffs[Nx,Ny]*ones(Bool,size(x))
-    for ky = Ny-1:-1:1
-        vals = vals.*zy+F.coeffs[Nx,ky]
+    val = zero(T)
+    nx, ny = div.(size(F.coeffs),2)
+    for k = -nx:nx, j = -ny:ny
+        val += F.coeffs[k+nx+1,j+ny+1]*exp(2π*im*(k*x + j*y))
     end
-    for kx = Nx-1:-1:1
-        innervals = F.coeffs[kx,Ny]*ones(Bool,size(x))
-        for ky = Ny-1:-1:1
-            innervals = innervals.*zy .+ F.coeffs[kx,ky]
-        end
-        vals = vals.*zx + innervals
-    end
-    vals.*exp.(-π*im*(x*(Nx-1) + y*(Ny-1)))
+    val
 end
 
 (F::FourierExtension2)(x,y) = evaluate(F,x,y)
