@@ -3,7 +3,7 @@ struct FourierExtension2{T}
     coeffs :: Matrix{T}
 end
 
-function FourierExtension2(f, Ω, n; tol = 1e-8, oversamp = 2.0)
+function FourierExtension2(f, Ω, n; tol = 1e-8, oversamp = 2)
     N = (2n[1]+1)*(2n[2]+1)
     L = ceil.(Int, 2oversamp.*n)
     x_grid, y_grid, gridrefs = grid_mask(L, Ω)
@@ -11,7 +11,7 @@ function FourierExtension2(f, Ω, n; tol = 1e-8, oversamp = 2.0)
         L .*= 2
         x_grid, y_grid, gridrefs = grid_mask(L, Ω)
     end
-    b = complex(f.(x_grid,y_grid')[gridrefs]/sqrt(prod(L)))
+    b = complex(f.(x_grid,y_grid')[gridrefs]/prod(L))
     M = length(b)
     padded_data = Matrix{eltype(b)}(undef, L)
     ifftplan! = plan_ifft!(padded_data)
@@ -35,7 +35,7 @@ function fourier_ext_2D_A!(output, coef, n, gridrefs, L, ifftplan!, padded_data)
     @views padded_data[Lx-nx+1:Lx,1:ny+1] = c[1:nx,ny+1:2ny+1]
     @views padded_data[Lx-nx+1:Lx,Ly-ny+1:Ly] = c[1:nx,1:ny]
     ifftplan!*padded_data
-    @views output .= padded_data[gridrefs].*sqrt(prod(L))
+    @views output .= padded_data[gridrefs]
     output
 end
 
@@ -43,7 +43,7 @@ function fourier_ext_2D_Astar!(output, v, n, gridrefs, L, fftplan!, padded_data)
     nx, ny = n
     Lx, Ly = L
     padded_data .= 0
-    @views padded_data[gridrefs] .= v./sqrt(prod(L))
+    @views padded_data[gridrefs] = v
     fftplan!*padded_data
     d = reshape(output, 2nx+1, 2ny+1)
     @views d[1:nx,1:ny] = padded_data[Lx-nx+1:Lx,Ly-ny+1:Ly]
@@ -68,8 +68,7 @@ end
 
 function grid_eval(F::FourierExtension2, L)
     # Evaluates a Fourier extension F.Ω ⊂ [0,1]x[0,1]
-    # with coefficients F.coeffs at the grid points F.Ω ∩ ((0:L)/L)×((0:L)/L)
-    # vals_l = sum_{k,j=-n:n} c(k,j) exp(2pi*i*(k*x_l + j*y_l))
+    # with coefficients F.coeffs at the grid points F.Ω ∩ ((0:L1)/L1)×((0:L2)/L2)
     nx, ny = div.(size(F.coeffs),2)
     Lx, Ly = L
     @assert (Lx ≥ 2nx+1) & (Ly ≥ 2ny+1)
