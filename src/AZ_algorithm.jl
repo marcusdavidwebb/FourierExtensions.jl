@@ -8,11 +8,9 @@ function AZ_algorithm(A::LinearMap, Z::LinearMap, b; rank_guess::Int=20, tol = 1
 end
 
 function low_rank_solve(A::LinearMap, b, rank_guess::Int=20, tol=1e-14)
-    ~, N = size(A)
-    extra_cols = 10
-    R = min(rank_guess,N-extra_cols)
-    W = randn(eltype(b),N,R+extra_cols)
-    return W * (qr!(Matrix(A*W)) \ b)
+    N = size(A,2)
+    W = randn(eltype(b),N,min(rank_guess,N))
+    return W * (Matrix(A*W) \ b)
 end
 
 #Solves a low rank system using adaptively growing random sketches and a pivoted QR solve
