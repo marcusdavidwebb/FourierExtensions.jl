@@ -13,7 +13,7 @@ function FourierExtension(f, n::Int; γ::Real=2.0, oversamp::Real = 2.0)
     b = complex(f.((-m:m) * 2γ / L) / sqrt(L))
     A = LinearMap(x -> fourier_ext_A(x,n,m,L), y -> fourier_ext_Astar(y,n,m,L), 2m+1,N)
     rank_guess = min(ceil(Int, 8*log(N))+10, N)
-    coeffs = AZ_algorithm(A, A, b, rank_guess=rank_guess, tol=1e-14, maxiter=100)
+    coeffs = AZ_algorithm(A, A, b; rank_guess, tol=1e-14)
     return FourierExtension(γ, coeffs)
 end
 
@@ -44,32 +44,27 @@ function fourier_ext_A(x, n::Int, m::Int, L::Int)
     # Fast matrix vector product of Fourier LS collocation matrix
     # A_{j,k} = exp(2pi*i*j*k/L)/sqrt(L) for j = -m:m, k = -n:n
     # to the column vector x (of length 2n+1).
-    w = [x[n+1:2n+1,:]; zeros(complex(eltype(x)),L-2n-1,size(x,2)); x[1:n,:]]
-    ifft!(w,1)
-    return w[[end-m+1:end; 1:m+1],:] * sqrt(L)
+    w = [x[n+1:2n+1]; zeros(complex(eltype(x)),L-2n-1); x[1:n]]
+    ifft!(w)
+    return [w[end-m+1:end]; w[1:m+1]] * sqrt(L)
 end
 
 function fourier_ext_Astar(y, n::Int, m::Int, L::Int)
     # Fast matrix vector product of adjoint of Fourier LS collocation matrix
     # A_{j,k} = exp(-2pi*i*j*k/L)/sqrt(L) for j = -n:n, k = -m:m
     # to the vector y (of length 2m+1).
-    w = [y[m+1:2m+1,:]; zeros(complex(eltype(y)),L-2m-1,size(y,2)); y[1:m,:]]
-    fft!(w,1)
-    return w[[L-n+1:L; 1:n+1],:] / sqrt(L)
+    w = [y[m+1:2m+1]; zeros(complex(eltype(y)),L-2m-1); y[1:m]]
+    fft!(w)
+    return [w[L-n+1:L]; w[1:n+1]] / sqrt(L)
 end
 
-function evaluate(F::FourierExtension,x)
+function evaluate(F::FourierExtension, x)
     # Evaluates a Fourier extension [-1,1] ⊂ [-γ,γ]
     # with coefficients c at grid points x
     # vals = sum_{j=-n:n} c_j exp(π*i*j*x/γ)
-    z = exp.(π*1im*x/F.γ)
-    N = length(F.coeffs)
-    vals = F.coeffs[N]*ones(size(x))
-    for k = N-1:-1:1
-        vals = vals.*z .+ F.coeffs[k]
-    end
-    vals = vals.*exp.(-π*1im*x*(N-1)/(2*F.γ))
-    return vals
+    γ = F.γ
+    n = (length(F.coeffs)-1)>>1
+    sum(F.coeffs[j+n+1] * exp(π*1im*j*x/γ) for j in -n:n)
 end
 
 (F::FourierExtension)(x) = evaluate(F,x)
