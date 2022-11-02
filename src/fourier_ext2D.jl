@@ -63,7 +63,7 @@ end
 
 function (F::FourierExtension2)(x,y)
     nx, ny = div.(size(F.coeffs),2)
-    sum(F.coeffs[k+nx+1,j+ny+1] * exp(2π*im*(k*x + j*y)) for k = -nx:nx, j =-ny:ny)
+    real(sum(F.coeffs[k+nx+1,j+ny+1] * exp(2π*im*(k*x + j*y)) for k = -nx:nx, j =-ny:ny))
 end
 
 function grid_eval(F::FourierExtension2, L)
@@ -81,14 +81,13 @@ function grid_eval(F::FourierExtension2, L)
     @views padded_data[Lx-nx+1:Lx,Ly-ny+1:Ly] = c[1:nx,1:ny]
     ifft!(padded_data)
     x_grid, y_grid, gridrefs = grid_mask(L, F.Ω)
-    vals = padded_data[gridrefs].*sqrt(prod(L))
+    vals = real.(padded_data[gridrefs].*sqrt(prod(L)))
     x_grid, y_grid, gridrefs, vals
 end
 
 function Plots.contourf(F::FourierExtension2, L)
     x_grid, y_grid, gridrefs, vals = grid_eval(F, L)
-    @assert norm(imag(vals),Inf) < 1e-4
-    valsmasked = Matrix{real(eltype(F.coeffs))}(undef,L)*NaN
-    @views valsmasked[gridrefs] .= real.(vals)
-    contourf(x_grid, y_grid, valsmasked, aspect_ratio=1, xlabel="x", ylabel = "y")
+    valsmasked = Matrix{eltype(vals)}(undef,L)*NaN
+    @views valsmasked[gridrefs] .= vals
+    contourf(x_grid, y_grid, valsmasked', aspect_ratio=1, xlabel="x", ylabel = "y")
 end
