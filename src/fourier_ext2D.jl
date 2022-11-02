@@ -11,16 +11,16 @@ function FourierExtension2(f, Ω, n; tol = 1e-12, oversamp = 2)
         L .*= 2
         grid, gridΩrefs = grid_mask(Ω, L)
     end
-    b = complex(f.(grid[1], grid[2]')[gridΩrefs]/prod(L))
+    b = complex(f.(grid[1], grid[2]')[gridΩrefs])
     M = length(b)
     padded_data = Matrix{eltype(b)}(undef, L)
-    ifftplan! = plan_ifft!(padded_data)
+    ifftplan! = plan_bfft!(padded_data)
     fftplan! = plan_fft!(padded_data)
     A = LinearMap(
         (output,x) -> fourier_ext_2D_A!(output, x, n, gridΩrefs, L, ifftplan!, padded_data),
         (output,y) -> fourier_ext_2D_Astar!(output, y, n, gridΩrefs, L, fftplan!, padded_data),
         M, N; ismutating=true)
-    rank_guess = min(round(Int, 3*sqrt(N)*log10(N))+20, div(N,2))
+    rank_guess = min(round(Int, 4*sqrt(N)*log10(N))+20, div(N,2))
     coeffs = AZ_algorithm(A, A, b; rank_guess, tol) # Z = A for Fourier extensions
     FourierExtension2(Ω, reshape(coeffs, 2n[1]+1, 2n[2]+1))
 end
@@ -39,11 +39,11 @@ function fourier_ext_2D_A!(output, coef, n::Tuple{Int,Int}, gridΩrefs, L::Tuple
     output
 end
 
-function fourier_ext_2D_Astar!(output, v, n::Tuple{Int,Int}, gridΩrefs, L::Tuple{Int,Int}, fftplan!, padded_data)
+function fourier_ext_2D_Astar!(output, vals, n::Tuple{Int,Int}, gridΩrefs, L::Tuple{Int,Int}, fftplan!, padded_data)
     nx, ny = n
     Lx, Ly = L
     padded_data .= 0
-    @views padded_data[gridΩrefs] = v
+    @views padded_data[gridΩrefs] .= vals./prod(L)
     fftplan!*padded_data
     d = reshape(output, 2nx+1, 2ny+1)
     @views d[1:nx,1:ny] = padded_data[Lx-nx+1:Lx,Ly-ny+1:Ly]
@@ -75,9 +75,9 @@ function grid_eval(F::FourierExtension2, L::Tuple{Int,Int})
     @views padded_data[1:nx+1,Ly-ny+1:Ly] = F.coeffs[nx+1:2nx+1,1:ny]
     @views padded_data[Lx-nx+1:Lx,1:ny+1] = F.coeffs[1:nx,ny+1:2ny+1]
     @views padded_data[Lx-nx+1:Lx,Ly-ny+1:Ly] = F.coeffs[1:nx,1:ny]
-    ifft!(padded_data)
+    bfft!(padded_data)
     grid, gridΩrefs = grid_mask(F.Ω, L)
-    vals = real.(padded_data[gridΩrefs]*prod(L))
+    vals = real.(padded_data[gridΩrefs])
     grid, gridΩrefs, vals
 end
 
