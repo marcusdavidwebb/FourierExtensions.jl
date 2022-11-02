@@ -82,32 +82,30 @@ function (F::FourierExtension2{T})(x,y) where T
     val
 end
 
-function grid_evaluate(F::FourierExtension2{T}, Ω, L::Int) where T
+function grid_eval(F::FourierExtension2{T}, Ω, L::Int) where T
     # Evaluates a Fourier extension Ω ⊂ [0,1]x[0,1]
     # with coefficients c at the grid points Ω ∩ ((0:L)/L)×((0:L)/L)
     # vals_l = sum_{k,j=-n:n} c(k,j) exp(2pi*i*(k*x_l + j*y_l))
-
-    n = div(size(F.coeffs,1)-1,2)
+    n = div(size(F.coeffs,1),2)
+    padded_mat = zeros(T,L,L)
     if L >= 2n+1
-        paddedmat = [F.coeffs[n+1:2n+1,n+1:2n+1] zeros(T,n+1,L-(2n+1)) F.coeffs[n+1:2n+1,1:n];
-                                                 zeros(T,L-(2n+1),L);
-                     F.coeffs[1:n,n+1:2n+1]      zeros(T,n,L-(2n+1))   F.coeffs[1:n,1:n]]
+        @views padded_data[1:n+1,1:n+1] = F.coeffs[n+1:2n+1,n+1:2n+1]
+        @views padded_data[1:n+1,L-n+1:L] = F.coeffs[n+1:2n+1,1:n]
+        @views padded_data[L-n+1:L,1:n+1] = F.coeffs[1:n,n+1:2n+1]
+        @views padded_data[L-n+1:L,L-n+1:L] = F.coeffs[1:n,1:n]
     else
-        paddedmat = zeros(L,L)
-        for k = 1:2n+1
-            for j = 1:2n+1
-                paddedmat[1+mod(k-1-n,L),1+mod(j-1-n,L)] = paddedmat[1+mod(k-1-n,L),1+mod(j-1-n,L)] + F.coeffs[k,j]
-            end
+        for k = 1:2n+1, j = 1:2n+1
+                padded_mat[1+mod(k-1-n,L),1+mod(j-1-n,L)] = padded_mat[1+mod(k-1-n,L),1+mod(j-1-n,L)] + F.coeffs[k,j]
         end
     end
-    ifft!(paddedmat)
+    bfft!(padded_mat)
     indsx, indsy = grid_filter(0:1/L:1L, 0:1/L:1, Ω)
-    vals = [paddedmat[indsx[k],indsy[k]] for k = 1:length(indsx)] * L^2
+    vals = [padded_mat[indsx[k],indsy[k]] for k ∈ eachindex(indsx)]
     indsx, indsy, vals
 end
 
 
-function contourf(F::FourierExtension2{T}, Ω, L) where T
+function Plots.contourf(F::FourierExtension2{T}, Ω, L) where T
     indsx,indsy,vals = grid_eval(F, Ω, L)
     M = length(indsx)
     if norm(imag(vals),Inf) < 1e-4
