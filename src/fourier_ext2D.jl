@@ -25,10 +25,10 @@ function FourierExtension2(f, Ω, n; tol = 1e-12, oversamp = 2)
     FourierExtension2(Ω, reshape(coeffs, 2n[1]+1, 2n[2]+1))
 end
 
-function fourier_ext_2D_A!(output, coef, n::Tuple{Int,Int}, gridΩrefs, L::Tuple{Int,Int}, ifftplan!, padded_data)
+function fourier_ext_2D_A!(output, coeffs, n::Tuple{Int,Int}, gridΩrefs, L::Tuple{Int,Int}, ifftplan!, padded_data)
     nx, ny = n
     Lx, Ly = L
-    c = reshape(coef, 2nx+1, 2ny+1)
+    c = reshape(coeffs, 2nx+1, 2ny+1)
     padded_data .= 0
     @views padded_data[1:nx+1,1:ny+1] = c[nx+1:2nx+1,ny+1:2ny+1]
     @views padded_data[1:nx+1,Ly-ny+1:Ly] = c[nx+1:2nx+1,1:ny]
