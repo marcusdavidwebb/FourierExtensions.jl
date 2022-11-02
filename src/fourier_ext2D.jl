@@ -97,15 +97,13 @@ function grid_filter(xgrid::AbstractVector,ygrid::AbstractVector,Ω)
     indsx, indsy
 end
 
-function evaluate(F::FourierExtension2{T}, x, y) where T
-    val = zero(T)
-    nx, ny = div.(size(F.coeffs),2)
+function (F::FourierExtension2{T})(x,y) where T
+    val = zero(T); nx, ny = div.(size(F.coeffs),2)
     for k = -nx:nx, j = -ny:ny
         val += F.coeffs[k+nx+1,j+ny+1]*exp(2π*im*(k*x + j*y))
     end
     val
 end
-(F::FourierExtension2)(x,y) = evaluate(F,x,y)
 
 function grid_evaluate(F::FourierExtension2{T}, Ω, L::Int) where T
     # Evaluates a Fourier extension Ω ⊂ [0,1]x[0,1]
