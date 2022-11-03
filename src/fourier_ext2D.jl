@@ -64,7 +64,7 @@ end
 # Evaluates a 2D Fourier extension at (x,y)
 function (F::FourierExtension2)(x,y)
     nx, ny = div.(size(F.coeffs),2)
-    real(sum(F.coeffs[k+nx+1,j+ny+1] * exp(2π*im*(k*x + j*y)) for k = -nx:nx, j =-ny:ny))
+    real(sum(F.coeffs[k+nx+1,j+ny+1] * exp((k*x + j*y)*2*π*im) for k = -nx:nx, j =-ny:ny))
 end
 
 # Evaluates a 2D Fourier extension at the grid points F.Ω ∩ ((0:L1)/L1)×((0:L2)/L2)

@@ -8,7 +8,7 @@ end
 
 function low_rank_solver(A::LinearMap; rank_guess::Int=20)
     N = size(A,2)
-    W = rand(complex([-1,1]),N,min(rank_guess,N))
+    W = rand(complex(eltype(A)),N,min(rank_guess,N)) .- 0.5
     packed_qr = qr!(Matrix(A*W))
     b -> W * (packed_qr \ b)
 end

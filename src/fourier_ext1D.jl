@@ -4,9 +4,9 @@ struct FourierExtension{T}
 end
 
 # Constructor
-function FourierExtension(f, n::Int; oversamp=2)
+function FourierExtension(f, n::Int; oversamp=2, T = Float64)
     m = ceil(Int, oversamp*n)
-    b = complex(f.(-1:1/m:1))
+    b = complex(f.(-1:inv(T(m)):1))
     padded_data = Vector{eltype(b)}(undef,4m)
     ifftplan! = plan_bfft!(padded_data)
     fftplan! = plan_fft!(padded_data)
@@ -62,18 +62,18 @@ end
 # Evaluates a Fourier extension on at point x
 function (F::FourierExtension)(x)
     n = div(length(F.coeffs),2)
-    real(sum(F.coeffs[j+n+1] * exp(π*1im*j*x/2) for j in -n:n))
+    real(sum(F.coeffs[j+n+1] * exp(j*x*π*im/2) for j in -n:n))
 end
 
 # Evaluates a Fourier extension at grid points -1:1/m:1
-function grid_eval(F::FourierExtension, m::Int)
+function grid_eval(F::FourierExtension{T}, m::Int) where T
     L = 4m
     n = div(length(F.coeffs),2)
     @assert  L >= 2n+1
     padded_data = [F.coeffs[n+1:2n+1]; zeros(L- 2n - 1); F.coeffs[1:n]]
     bfft!(padded_data)
     vals = real(padded_data[[L-m+1:L; 1:m+1]])
-    -1:1/m:1, vals
+    -1:inv(real(T(m))):1, vals
 end
 
 function Plots.plot(F::FourierExtension; args...)
