@@ -73,14 +73,10 @@ function grid_eval(F::FourierExtension2, L::Tuple{Int,Int})
     Lx, Ly = L
     @assert (Lx ≥ 2nx+1) & (Ly ≥ 2ny+1)
     padded_data = zeros(eltype(F.coeffs),L)
-    @views padded_data[1:nx+1,1:ny+1] = F.coeffs[nx+1:2nx+1,ny+1:2ny+1]
-    @views padded_data[1:nx+1,Ly-ny+1:Ly] = F.coeffs[nx+1:2nx+1,1:ny]
-    @views padded_data[Lx-nx+1:Lx,1:ny+1] = F.coeffs[1:nx,ny+1:2ny+1]
-    @views padded_data[Lx-nx+1:Lx,Ly-ny+1:Ly] = F.coeffs[1:nx,1:ny]
-    bfft!(padded_data)
     grid, gridΩrefs = grid_mask(F.Ω, L)
-    vals = real(padded_data[gridΩrefs])
-    grid, gridΩrefs, vals
+    vals = Vector{eltype(padded_data)}(undef,length(gridΩrefs))
+    fourier_ext_2D_A!(vals, F.coeffs, (nx,ny), gridΩrefs, plan_bfft!(padded_data), padded_data)
+    grid, gridΩrefs, real(vals)
 end
 
 function Plots.contourf(F::FourierExtension2, L::Tuple{Int,Int}=(0,0))
