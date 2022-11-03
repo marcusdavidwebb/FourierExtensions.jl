@@ -76,7 +76,7 @@ function grid_eval(F::FourierExtension, m::Int)
     -1:1/m:1, vals
 end
 
-function Plots.plot(F::FourierExtension;args...)
-    grid, vals = grid_eval(F, max(1000,4length(F.coeffs)))
+function Plots.plot(F::FourierExtension; args...)
+    grid, vals = grid_eval(F, 4max(100,length(F.coeffs)))
     plot(grid, vals, args...)
 end
