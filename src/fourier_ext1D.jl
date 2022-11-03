@@ -22,15 +22,14 @@ end
 # Adaptive Constructor
 function FourierExtension(f; oversamp = 2, nmin::Int=32, nmax::Int=4096)
     n = nmin
-    fval = f(0.34)
     while n <= nmax
         F = FourierExtension(f, n; oversamp)
-        grid,vals = grid_eval(F,round(Int,2*oversamp*n))
+        grid,vals = grid_eval(F,ceil(Int,2*oversamp*n)) # use double resolution to check error
         fvals = f.(grid)
         fvalsnorm = norm(fvals)
         if norm(F.coeffs)/fvalsnorm < 100 # check coefficients are not too large to be stable
             if norm(abs.(fvals - vals))/fvalsnorm < sqrt(n)*1e-14 # check residual
-                if abs(F(0.34) - fval) < 1e-14 # final check at a single "random" point
+                if abs(F(0.34) - f(0.34)) < 1e-14 # final check at a single "random" point
                     return F
                 end
             end
