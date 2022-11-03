@@ -36,8 +36,8 @@ function fe_2d_setup(Ω, n, oversamp, ::Type{T}) where {T}
     ifftplan! = plan_bfft!(padded_data)
     fftplan! = plan_fft!(padded_data)
     A = LinearMap(
-        (output,x) -> fourier_ext_2D_A!(output, x, n, gridΩrefs, L, ifftplan!, padded_data),
-        (output,y) -> fourier_ext_2D_Astar!(output, y, n, gridΩrefs, L, fftplan!, padded_data),
+        (output,x) -> fourier_ext_2D_A!(output, x, n, gridΩrefs, ifftplan!, padded_data),
+        (output,y) -> fourier_ext_2D_Astar!(output, y, n, gridΩrefs, fftplan!, padded_data),
         M, N; ismutating=true)
     L, M, N, A, grid, gridΩrefs
 end
@@ -59,7 +59,7 @@ function pde_matrix(Ω, ∂Ω, n, oversamp, K, f, p, g)
     L, M, N, Amap, grid, gridΩrefs = fe_2d_setup(Ω, n, oversamp, T)
     A_f = Matrix{Complex{T}}(Amap)
     Ap_f = Matrix{Complex{T}}(Amap')
-    D = FourierExtensions.differentiation_matrix(n, (2,2))
+    D = differentiation_matrix(n, (2,2))
     P = Diagonal(p.(grid[1], grid[2]')[gridΩrefs])
     b_f = complex(f.(grid[1], grid[2]')[gridΩrefs])
     bc_pts = sample_boundary(∂Ω, K)
