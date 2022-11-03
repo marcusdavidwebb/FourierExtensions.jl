@@ -3,7 +3,7 @@ struct FourierExtension2{T}
     coeffs :: Matrix{T}
 end
 
-function FourierExtension2(f, Ω, n; tol = 1e-12, oversamp = 2)
+function FourierExtension2(f, Ω, n::Tuple{Int,Int}; tol = 1e-12, oversamp = 2)
     L = ceil.(Int, 2oversamp.*n)
     grid, gridΩrefs = grid_mask(Ω, L)
     N = (2n[1]+1)*(2n[2]+1)
