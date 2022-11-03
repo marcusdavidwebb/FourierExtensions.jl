@@ -1,29 +1,27 @@
 
-# Represents a function on [-1,1] by a Fourier series on [-γ,γ] where γ > 1
-struct FourierExtension{T1,T2}
-    γ :: T1
-    coeffs :: Vector{T2}
+# Represents a function on [-1,1] by a Fourier series on [-2,2]
+struct FourierExtension{T}
+    coeffs :: Vector{T}
 end
 
 # Constructor
-function FourierExtension(f, n::Int; γ::Real=2.0, oversamp::Real = 2.0)
+function FourierExtension(f, n::Int; oversamp=2)
     m = ceil(Int, oversamp*n)
-    L = ceil(Int, 2γ * m)
+    L = ceil(Int, 4 * m)
     N = 2n+1
-    b = complex(f.((-m:m) * 2γ / L) / sqrt(L))
+    b = complex(f.((-m:m) * 4 / L) / sqrt(L))
     A = LinearMap(x -> fourier_ext_A(x,n,m,L), y -> fourier_ext_Astar(y,n,m,L), 2m+1,N)
     rank_guess = min(ceil(Int, 8*log(N))+10, N)
     coeffs = AZ_algorithm(A, A, b; rank_guess, tol=1e-14)
-    return FourierExtension(γ, coeffs)
+    return FourierExtension(coeffs)
 end
 
 # Adaptive Constructor
-function FourierExtension(f; γ::Real=2.0, oversamp::Real = 2.0, nmin::Int=32, nmax::Int=4096)
+function FourierExtension(f; oversamp = 2, nmin::Int=32, nmax::Int=4096)
     n = nmin
     fval = f(0.34)
-    F = FourierExtension(γ,[complex(fval)])
     while n <= nmax
-        F = FourierExtension(f, n, γ = γ; oversamp)
+        F = FourierExtension(f, n; oversamp)
         grid,vals = grid_evaluate(F,round(Int,2*oversamp*n))
         fvals = f.(grid)
         fvalsnorm = norm(fvals)
@@ -41,40 +39,35 @@ function FourierExtension(f; γ::Real=2.0, oversamp::Real = 2.0, nmin::Int=32, n
 end
 
 function fourier_ext_A(x, n::Int, m::Int, L::Int)
-    # Fast matrix vector product of Fourier LS collocation matrix
     # A_{j,k} = exp(2pi*i*j*k/L)/sqrt(L) for j = -m:m, k = -n:n
-    # to the column vector x (of length 2n+1).
     w = [x[n+1:2n+1]; zeros(complex(eltype(x)),L-2n-1); x[1:n]]
     ifft!(w)
     return [w[end-m+1:end]; w[1:m+1]] * sqrt(L)
 end
 
 function fourier_ext_Astar(y, n::Int, m::Int, L::Int)
-    # Fast matrix vector product of adjoint of Fourier LS collocation matrix
     # A_{j,k} = exp(-2pi*i*j*k/L)/sqrt(L) for j = -n:n, k = -m:m
-    # to the vector y (of length 2m+1).
     w = [y[m+1:2m+1]; zeros(complex(eltype(y)),L-2m-1); y[1:m]]
     fft!(w)
     return [w[L-n+1:L]; w[1:n+1]] / sqrt(L)
 end
 
 function evaluate(F::FourierExtension, x)
-    # Evaluates a Fourier extension [-1,1] ⊂ [-γ,γ]
+    # Evaluates a Fourier extension [-1,1] ⊂ [-2,2]
     # with coefficients c at grid points x
     # vals = sum_{j=-n:n} c_j exp(π*i*j*x/γ)
-    γ = F.γ
     n = (length(F.coeffs)-1)>>1
-    sum(F.coeffs[j+n+1] * exp(π*1im*j*x/γ) for j in -n:n)
+    sum(F.coeffs[j+n+1] * exp(π*1im*j*x/2) for j in -n:n)
 end
 
 (F::FourierExtension)(x) = evaluate(F,x)
 
 function grid_evaluate(F::FourierExtension, m::Int)
-    # Evaluates a Fourier extension [-1,1] ⊂ [-γ,γ]
-    # with coefficients c at grid points (-m:m)*2γ/L
-    # vals(k) = sum_{j=-n:n} c_j exp(2pi*i*j*k/L), where L = ceil(2γm).
+    # Evaluates a Fourier extension [-1,1] ⊂ [-2,2]
+    # with coefficients c at grid points (-m:m)*4/L
+    # vals(k) = sum_{j=-n:n} c_j exp(2pi*i*j*k/L), where L = ceil(4m).
 
-    L = ceil(Int, F.γ*2*m)
+    L = ceil(Int, 4m)
     N = length(F.coeffs)
     n = div(N-1,2)
     if  L >= N
@@ -86,7 +79,7 @@ function grid_evaluate(F::FourierExtension, m::Int)
         end
     end
     ifft!(w)
-    grid = (-m:m)*2*F.γ/L
+    grid = (-m:m)*4/L
     vals = L*w[[L-m+1:L; 1:m+1]]
     return grid, vals
 end
