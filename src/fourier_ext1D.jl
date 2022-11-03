@@ -4,7 +4,7 @@ struct FourierExtension{T}
 end
 
 # Constructor
-function FourierExtension(f, n::Int; tol=1e-12, oversamp=2)
+function FourierExtension(f, n::Int; oversamp=2)
     m = ceil(Int, oversamp*n)
     b = complex(f.(-1:1/m:1))
     padded_data = Vector{eltype(b)}(undef,4m)
@@ -15,14 +15,14 @@ function FourierExtension(f, n::Int; tol=1e-12, oversamp=2)
         (output,y) -> fourier_ext_Astar!(output,y,n,m,fftplan!,padded_data),
         2m+1, 2n+1; ismutating=true)
     rank_guess = min(ceil(Int, 8*log(2n+1))+10, 2n+1)
-    FourierExtension(AZ_algorithm(A, A/4m, b; rank_guess, tol))
+    FourierExtension(AZ_algorithm(A, A/4m, b; rank_guess))
 end
 
 # Adaptive Constructor
 function FourierExtension(f; tol=1e-12, oversamp=2, nmin=32, nmax=4096)
     n = nmin
     while n <= nmax
-        global F = FourierExtension(f, n; tol, oversamp)
+        global F = FourierExtension(f, n; oversamp)
         grid,vals = grid_eval(F,ceil(Int,2*oversamp*n)) # use double resolution to check error
         fvals = f.(grid)
         fvalsnorm = norm(fvals)

@@ -5,7 +5,7 @@ struct FourierExtension2{T}
 end
 
 # Constructor
-function FourierExtension2(f, Ω, n::Tuple{Int,Int}; tol = 1e-12, oversamp = 2)
+function FourierExtension2(f, Ω, n::Tuple{Int,Int}; oversamp = 2)
     L = ceil.(Int, 2oversamp.*n)
     grid, gridΩrefs = grid_mask(Ω, L)
     N = (2n[1]+1)*(2n[2]+1)
@@ -23,7 +23,7 @@ function FourierExtension2(f, Ω, n::Tuple{Int,Int}; tol = 1e-12, oversamp = 2)
         (output,y) -> fourier_ext_2D_Astar!(output, y, n, gridΩrefs, fftplan!, padded_data),
         M, N; ismutating=true)
     rank_guess = min(round(Int, 4*sqrt(N)*log10(N))+20, div(N,2))
-    coeffs = AZ_algorithm(A, A/prod(L), b; rank_guess, tol)
+    coeffs = AZ_algorithm(A, A/prod(L), b; rank_guess)
     FourierExtension2(Ω, reshape(coeffs, 2n[1]+1, 2n[2]+1))
 end
 
