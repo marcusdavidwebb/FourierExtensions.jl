@@ -1,4 +1,3 @@
-
 # Represents a function on [-1,1] by a Fourier series on [-2,2]
 struct FourierExtension{T}
     coeffs :: Vector{T}

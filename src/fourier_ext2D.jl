@@ -1,8 +1,10 @@
+# Represents a function on Ω ⊂ [0,1]² by a Fourier series on [0,1]²
 struct FourierExtension2{T}
-    Ω   # indicator function of Ω ⊂ [0,1] × [0,1]
+    Ω   # indicator function of Ω ⊂ [0,1]²
     coeffs :: Matrix{T}
 end
 
+# Constructor
 function FourierExtension2(f, Ω, n::Tuple{Int,Int}; tol = 1e-12, oversamp = 2)
     L = ceil.(Int, 2oversamp.*n)
     grid, gridΩrefs = grid_mask(Ω, L)
