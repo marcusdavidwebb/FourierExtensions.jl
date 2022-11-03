@@ -77,7 +77,7 @@ function grid_eval(F::FourierExtension2, L::Tuple{Int,Int})
     @views padded_data[Lx-nx+1:Lx,Ly-ny+1:Ly] = F.coeffs[1:nx,1:ny]
     bfft!(padded_data)
     grid, gridΩrefs = grid_mask(F.Ω, L)
-    vals = real.(padded_data[gridΩrefs])
+    vals = real(padded_data[gridΩrefs])
     grid, gridΩrefs, vals
 end
 
