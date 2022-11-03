@@ -7,14 +7,13 @@ end
 # Constructor
 function FourierExtension(f, n::Int; oversamp=2)
     m = ceil(Int, oversamp*n)
-    L = 4m
     b = complex(f.(-1:1/m:1))
-    padded_data = Vector{eltype(b)}(undef,L)
+    padded_data = Vector{eltype(b)}(undef,4m)
     ifftplan! = plan_bfft!(padded_data)
     fftplan! = plan_fft!(padded_data)
     A = LinearMap(
-        (output,x) -> fourier_ext_A!(output,x,n,m,L,ifftplan!,padded_data),
-        (output,y) -> fourier_ext_Astar!(output,y,n,m,L,fftplan!,padded_data),
+        (output,x) -> fourier_ext_A!(output,x,n,m,ifftplan!,padded_data),
+        (output,y) -> fourier_ext_Astar!(output,y,n,m,fftplan!,padded_data),
         2m+1,2n+1; ismutating=true)
     rank_guess = min(ceil(Int, 8*log(2n+1))+10, 2n+1)
     FourierExtension(AZ_algorithm(A, A, b; rank_guess, tol=1e-14))
@@ -42,23 +41,23 @@ function FourierExtension(f; oversamp = 2, nmin::Int=32, nmax::Int=4096)
     F
 end
 
-function fourier_ext_A!(output, x, n::Int, m::Int, L::Int, ifftplan!, padded_data)
+function fourier_ext_A!(output, x, n::Int, m::Int, ifftplan!, padded_data)
     padded_data .= 0
     @views padded_data[1:n+1] = x[n+1:2n+1]
-    @views padded_data[L-n+1:L] = x[1:n]
+    @views padded_data[end-n+1:end] = x[1:n]
     ifftplan!*(padded_data)
-    @views output[1:m] = padded_data[L-m+1:L]
+    @views output[1:m] = padded_data[end-m+1:end]
     @views output[m+1:2m+1] = padded_data[1:m+1]
     output
 end
 
-function fourier_ext_Astar!(output, y, n::Int, m::Int, L::Int, fftplan!, padded_data)
+function fourier_ext_Astar!(output, y, n::Int, m::Int, fftplan!, padded_data)
     padded_data .= 0
     @views padded_data[1:m+1] = y[m+1:2m+1]
-    @views padded_data[L-m+1:L] = y[1:m]
+    @views padded_data[end-m+1:end] = y[1:m]
     fftplan!*padded_data
-    @views output[1:n] .= padded_data[L-n+1:L]./L
-    @views output[n+1:2n+1] .= padded_data[1:n+1]./L
+    @views output[1:n] .= padded_data[end-n+1:end]./length(padded_data)
+    @views output[n+1:2n+1] .= padded_data[1:n+1]./length(padded_data)
     output
 end
 
@@ -76,17 +75,12 @@ function grid_eval(F::FourierExtension, m::Int)
     @assert  L >= N
     padded_data = [F.coeffs[n+1:N]; zeros(L-N); F.coeffs[1:n]]
     bfft!(padded_data)
-    vals = padded_data[[L-m+1:L; 1:m+1]]
+    vals = real(padded_data[[L-m+1:L; 1:m+1]])
     -1:1/m:1, vals
 end
 
 function Plots.plot(F::FourierExtension;args...)
-    plot()
-    plot!(F,args...)
-end
-
-function Plots.plot!(F::FourierExtension;args...)
     m = max(1000,4*length(F.coeffs))
     grid, vals = grid_eval(F,m)
-    plot(grid,real(vals), args...)
+    plot(grid, vals, args...)
 end
