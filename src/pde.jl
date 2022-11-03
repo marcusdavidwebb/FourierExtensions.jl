@@ -1,6 +1,6 @@
 
-differentiation_matrix(n::Int, order::Int, γ) =
-    Diagonal([(π*1im*k/γ)^order for k in -n:n])
+differentiation_matrix(n::Int, order::Int) =
+    Diagonal([(π*1im*k/2)^order for k in -n:n])
 
 function differentiation_matrix(n::Tuple{Int,Int}, order::Tuple{Int,Int})
     nx, ny = n
@@ -10,7 +10,7 @@ end
 
 function derivative(f::FourierExtension, order::Int = 1)
     n = (length(f.coeffs)-1) >> 1
-    D = differentiation_matrix(n, order, f.γ)
+    D = differentiation_matrix(n, order)
     FourierExtension(f.γ, D*f.coeffs)
 end
 
