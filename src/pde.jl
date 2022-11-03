@@ -1,5 +1,6 @@
 export derivative,
-    pde_matrix
+    pde_matrix,
+    differentiation_matrix
 
 differentiation_matrix(n::Int, order::Int) =
     Diagonal([(π*1im*k/2)^order for k in -n:n])
@@ -59,7 +60,7 @@ function pde_matrix(Ω, ∂Ω, n, oversamp, K, f, p, g)
     L, M, N, Amap, grid, gridΩrefs = fe_2d_setup(Ω, n, oversamp, T)
     A_f = Matrix{Complex{T}}(Amap)
     Ap_f = Matrix{Complex{T}}(Amap')
-    D = differentiation_matrix(n, (2,2))
+    D = differentiation_matrix(n, (2,0)) + differentiation_matrix(n, (0,2))
     P = Diagonal(p.(grid[1], grid[2]')[gridΩrefs])
     b_f = complex(f.(grid[1], grid[2]')[gridΩrefs])
     bc_pts = sample_boundary(∂Ω, K)
