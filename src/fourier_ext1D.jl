@@ -15,7 +15,7 @@ function FourierExtension(f, n::Int; tol=1e-12, oversamp=2)
         (output,y) -> fourier_ext_Astar!(output,y,n,m,fftplan!,padded_data),
         2m+1, 2n+1; ismutating=true)
     rank_guess = min(ceil(Int, 8*log(2n+1))+10, 2n+1)
-    FourierExtension(AZ_algorithm(A, A, b; rank_guess, tol))
+    FourierExtension(AZ_algorithm(A, A/4m, b; rank_guess, tol))
 end
 
 # Adaptive Constructor
@@ -54,8 +54,8 @@ function fourier_ext_Astar!(output, y, n::Int, m::Int, fftplan!, padded_data)
     @views padded_data[1:m+1] = y[m+1:2m+1]
     @views padded_data[end-m+1:end] = y[1:m]
     fftplan!*padded_data
-    @views output[1:n] .= padded_data[end-n+1:end]./length(padded_data)
-    @views output[n+1:2n+1] .= padded_data[1:n+1]./length(padded_data)
+    @views output[1:n] .= padded_data[end-n+1:end]
+    @views output[n+1:2n+1] .= padded_data[1:n+1]
     output
 end
 

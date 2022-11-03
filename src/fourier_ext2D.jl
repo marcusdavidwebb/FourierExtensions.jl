@@ -23,7 +23,7 @@ function FourierExtension2(f, Ω, n::Tuple{Int,Int}; tol = 1e-12, oversamp = 2)
         (output,y) -> fourier_ext_2D_Astar!(output, y, n, gridΩrefs, fftplan!, padded_data),
         M, N; ismutating=true)
     rank_guess = min(round(Int, 4*sqrt(N)*log10(N))+20, div(N,2))
-    coeffs = AZ_algorithm(A, A, b; rank_guess, tol) # Z = A for Fourier extensions
+    coeffs = AZ_algorithm(A, A/prod(L), b; rank_guess, tol)
     FourierExtension2(Ω, reshape(coeffs, 2n[1]+1, 2n[2]+1))
 end
 
@@ -45,7 +45,7 @@ function fourier_ext_2D_Astar!(output, vals, n::Tuple{Int,Int}, gridΩrefs, fftp
     nx, ny = n
     Lx, Ly = size(padded_data)
     padded_data .= 0
-    @views padded_data[gridΩrefs] .= vals./(Lx*Ly)
+    @views padded_data[gridΩrefs] = vals
     fftplan!*padded_data
     d = reshape(output, 2nx+1, 2ny+1)
     @views d[1:nx,1:ny] = padded_data[Lx-nx+1:Lx,Ly-ny+1:Ly]
@@ -82,7 +82,7 @@ end
 function Plots.contourf(F::FourierExtension2, L::Tuple{Int,Int}=(0,0))
     (L == (0,0)) && (L = max.(100, 4 .* size(F.coeffs)))
     grid, gridΩrefs, vals = grid_eval(F, L)
-    valsmasked = fill(eltype(vals)(NaN),L)
-    @views valsmasked[gridΩrefs] .= vals
-    contourf(grid[1], grid[2], valsmasked', aspect_ratio=1, xlabel="x", ylabel = "y")
+    masked_vals = fill(eltype(vals)(NaN),L)
+    @views masked_vals[gridΩrefs] .= vals
+    contourf(grid[1], grid[2], masked_vals', aspect_ratio=1, xlabel="x", ylabel = "y")
 end
