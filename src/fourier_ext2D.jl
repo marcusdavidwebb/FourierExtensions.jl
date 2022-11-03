@@ -8,7 +8,7 @@ function FourierExtension2(f, Ω, n; tol = 1e-12, oversamp = 2)
     grid, gridΩrefs = grid_mask(Ω, L)
     N = (2n[1]+1)*(2n[2]+1)
     while length(gridΩrefs) < oversamp*N # try to ensure oversampling rate
-        L .*= 2
+        L = L .* 2
         grid, gridΩrefs = grid_mask(Ω, L)
     end
     b = complex(f.(grid[1], grid[2]')[gridΩrefs])
