@@ -83,7 +83,8 @@ function grid_eval(F::FourierExtension2, L::Tuple{Int,Int})
     grid, gridΩrefs, vals
 end
 
-function Plots.contourf(F::FourierExtension2, L::Tuple{Int,Int})
+function Plots.contourf(F::FourierExtension2, L::Tuple{Int,Int}=(0,0))
+    (L == (0,0)) && (L = max.(100, 4 .* size(F.coeffs)))
     grid, gridΩrefs, vals = grid_eval(F, L)
     valsmasked = fill(eltype(vals)(NaN),L)
     @views valsmasked[gridΩrefs] .= vals
