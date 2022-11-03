@@ -22,6 +22,7 @@ function derivative(f::FourierExtension2, order::Tuple{Int,Int})
     FourierExtension2(f.Ω, reshape(D*f.coeffs[:], 2 .*n .+ 1))
 end
 
+# This is a copy of the code in fourier_ext2D for now. Todo: clean up.
 function fe_2d_setup(Ω, n, oversamp, ::Type{T}) where {T}
     N = (2n[1]+1)*(2n[2]+1)
     L = ceil.(Int, 2oversamp.*n)
