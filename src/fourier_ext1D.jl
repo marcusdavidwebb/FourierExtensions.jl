@@ -63,7 +63,7 @@ end
 # Evaluates a Fourier extension on at point x
 function (F::FourierExtension)(x)
     n = div(length(F.coeffs),2)
-    sum(F.coeffs[j+n+1] * exp(π*1im*j*x/2) for j in -n:n)
+    real(sum(F.coeffs[j+n+1] * exp(π*1im*j*x/2) for j in -n:n))
 end
 
 # Evaluates a Fourier extension at grid points -1:1/m:1
