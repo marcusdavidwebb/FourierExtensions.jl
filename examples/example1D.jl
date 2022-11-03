@@ -1,5 +1,9 @@
 using Revise
 using FourierExtensions
-f = FourierExtension(x->cos(x^2)+x^7 + 1)
+f = x->cos(100x^2)+x^7 + 1
+@time F = FourierExtension(f);
+f(0.6) - F(0.6)
+
+
 using Plots
-plot(f)
+plot(F)
