@@ -7,7 +7,7 @@ function FourierExtension2(f, Ω, n; tol = 1e-12, oversamp = 2)
     L = ceil.(Int, 2oversamp.*n)
     grid, gridΩrefs = grid_mask(Ω, L)
     N = (2n[1]+1)*(2n[2]+1)
-    while length(gridΩrefs) < oversamp*N # try to ensure oversampling rate
+    while length(gridΩrefs) < oversamp * N # try to ensure oversampling rate
         L = L .* 2
         grid, gridΩrefs = grid_mask(Ω, L)
     end
@@ -17,17 +17,17 @@ function FourierExtension2(f, Ω, n; tol = 1e-12, oversamp = 2)
     ifftplan! = plan_bfft!(padded_data)
     fftplan! = plan_fft!(padded_data)
     A = LinearMap(
-        (output,x) -> fourier_ext_2D_A!(output, x, n, gridΩrefs, L, ifftplan!, padded_data),
-        (output,y) -> fourier_ext_2D_Astar!(output, y, n, gridΩrefs, L, fftplan!, padded_data),
+        (output,x) -> fourier_ext_2D_A!(output, x, n, gridΩrefs, ifftplan!, padded_data),
+        (output,y) -> fourier_ext_2D_Astar!(output, y, n, gridΩrefs, fftplan!, padded_data),
         M, N; ismutating=true)
     rank_guess = min(round(Int, 4*sqrt(N)*log10(N))+20, div(N,2))
     coeffs = AZ_algorithm(A, A, b; rank_guess, tol) # Z = A for Fourier extensions
     FourierExtension2(Ω, reshape(coeffs, 2n[1]+1, 2n[2]+1))
 end
 
-function fourier_ext_2D_A!(output, coeffs, n::Tuple{Int,Int}, gridΩrefs, L::Tuple{Int,Int}, ifftplan!, padded_data)
+function fourier_ext_2D_A!(output, coeffs, n::Tuple{Int,Int}, gridΩrefs, ifftplan!, padded_data)
     nx, ny = n
-    Lx, Ly = L
+    Lx, Ly = size(padded_data)
     c = reshape(coeffs, 2nx+1, 2ny+1)
     padded_data .= 0
     @views padded_data[1:nx+1,1:ny+1] = c[nx+1:2nx+1,ny+1:2ny+1]
@@ -39,11 +39,11 @@ function fourier_ext_2D_A!(output, coeffs, n::Tuple{Int,Int}, gridΩrefs, L::Tup
     output
 end
 
-function fourier_ext_2D_Astar!(output, vals, n::Tuple{Int,Int}, gridΩrefs, L::Tuple{Int,Int}, fftplan!, padded_data)
+function fourier_ext_2D_Astar!(output, vals, n::Tuple{Int,Int}, gridΩrefs, fftplan!, padded_data)
     nx, ny = n
-    Lx, Ly = L
+    Lx, Ly = size(padded_data)
     padded_data .= 0
-    @views padded_data[gridΩrefs] .= vals./prod(L)
+    @views padded_data[gridΩrefs] .= vals./(Lx*Ly)
     fftplan!*padded_data
     d = reshape(output, 2nx+1, 2ny+1)
     @views d[1:nx,1:ny] = padded_data[Lx-nx+1:Lx,Ly-ny+1:Ly]
