@@ -22,11 +22,11 @@ end
 function FourierExtension(f; tol=1e-12, oversamp=2, nmin=32, nmax=4096)
     n = nmin
     while n <= nmax
-        F = FourierExtension(f, n; tol, oversamp)
+        global F = FourierExtension(f, n; tol, oversamp)
         grid,vals = grid_eval(F,ceil(Int,2*oversamp*n)) # use double resolution to check error
         fvals = f.(grid)
         fvalsnorm = norm(fvals)
-        if norm(F.coeffs)/fvalsnorm < 100 # check coefficients are not too large to be stable
+        if length(fvals)*norm(F.coeffs)/fvalsnorm < 200 # check coefficients are not too large to be stable
             if norm(abs.(fvals - vals))/fvalsnorm < sqrt(n)*tol # check residual
                 if (x -> abs(F(x)-f(x)))(rand()) < tol # final check at a single random point
                     return F
