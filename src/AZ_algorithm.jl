@@ -1,5 +1,5 @@
 
-function AZ_algorithm(A::LinearMap, Z::LinearMap, b; rank_guess::Int=20, step_1_solver=undef)
+function AZ_algorithm(A::LinearMap, Z::LinearMap, b::Vector; rank_guess::Int=20, step_1_solver=undef)
     (step_1_solver == undef) && (step_1_solver = low_rank_solver((I - A*Z')*A; rank_guess))
     x1 = step_1_solver((I - A*Z')*b)
     x2 = Z'*(b-A*x1)
