@@ -22,7 +22,7 @@ function FourierExtension2(f::Function, Ω::Function, n::Tuple{Int,Int}; oversam
         (output,x) -> fourier_ext_2D_A!(output, x, n, gridΩrefs, ifftplan!, padded_data),
         (output,y) -> fourier_ext_2D_Astar!(output, y, n, gridΩrefs, fftplan!, padded_data),
         M, N; ismutating=true)
-    rank_guess = min(ceil(Int, 4*sqrt(N)*log10(N))+20, div(N,2))
+    rank_guess = min(ceil(Int, 4*sqrt(N)*log10(N))+20, N)
     coeffs = AZ_algorithm(A, A/prod(L), b; rank_guess)
     FourierExtension2(Ω, reshape(coeffs, 2n[1]+1, 2n[2]+1))
 end
@@ -69,11 +69,10 @@ end
 
 # Evaluates a 2D Fourier extension at F.Ω ∩ ((0:L1)/L1)×((0:L2)/L2). Throws error if L .< 2n+1.
 function grid_eval(F::FourierExtension2, L::Tuple{Int,Int})
-    n = div.(size(F.coeffs),2)
     grid, gridΩrefs = grid_mask(F.Ω, L)
     vals = Vector{ComplexF64}(undef,length(gridΩrefs))
     padded_data = Matrix{ComplexF64}(undef,L)
-    fourier_ext_2D_A!(vals, F.coeffs, n, gridΩrefs, plan_bfft!(padded_data), padded_data)
+    fourier_ext_2D_A!(vals, F.coeffs[:], div.(size(F.coeffs),2), gridΩrefs, plan_bfft!(padded_data), padded_data)
     grid, gridΩrefs, real(vals)
 end
 
@@ -81,6 +80,6 @@ function Plots.contourf(F::FourierExtension2, L::Tuple{Int,Int}=(0,0))
     (L == (0,0)) && (L = max.(100, 4 .* size(F.coeffs)))
     grid, gridΩrefs, vals = grid_eval(F, L)
     masked_vals = fill(NaN,L)
-    @views masked_vals[gridΩrefs] .= vals
+    @views masked_vals[gridΩrefs] = vals
     contourf(grid[1], grid[2], masked_vals', aspect_ratio=1, xlabel="x", ylabel = "y")
 end
