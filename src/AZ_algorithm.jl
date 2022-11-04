@@ -6,37 +6,32 @@ function AZ_algorithm(A::LinearMap, Z::LinearMap, b::Vector; rank_guess::Int=20,
     x1 + x2
 end
 
+# Low rank solver which uses rank_guess
 function low_rank_solver(A::LinearMap; rank_guess::Int=20)
-    N = size(A,2)
-    W = rand([-1.0+0im, 1.0+0im], N, min(rank_guess,N))
-    packed_qr = qr!(Matrix(A*W))
-    b -> W * (packed_qr \ b)
+   X = rand([-1.0+0im, 1.0+0im], size(A,2), min(rank_guess,size(A,2)))
+   qrAX = qr!(Matrix(A*X))
+   b -> X * (qrAX \ b)
 end
 
-#Solves a low rank system using adaptively growing random sketches and a pivoted QR solve
-# function low_rank_solve(A::LinearMap, b, rank_guess::Int=20, tol=1e-14)
-#     M, N = size(A)
-#     R = min(rank_guess,N)
-#     W = randn(eltype(b),N,R)
-#     AW = Matrix(A*W)
-#     svals = svdvals!(AW)
-#     new_rank_guess = max(findlast(t->(t>tol*svals[1]),svals),1)
-#     while (R < new_rank_guess) && (new_rank_guess < N)
-#         Wadd = randn(eltype(b),N,R)
-#         W = [W Wadd]
-#         AW = [AW Matrix(A*Wadd)]
-#         R *= 2
-#         svals = svdvals!(AW)
-#         new_rank_guess = max(findlast(t->(t>tol*svals[1]),svals),1)
+# Adaptive low rank solver. Slows things down considerably.
+# Follows Algorithm 1 of Meier and Nakatsukasa 2021: https://arxiv.org/pdf/2105.07388.pdf
+# function low_rank_solver(A::LinearMap; rank_guess::Int=20, tol = 1e-12)
+#     (M,N) = size(A)
+#     X = Matrix{ComplexF64}(undef, N, 0)
+#     AX = Matrix{ComplexF64}(undef, M, 0)
+#     rank_est = rank_guess
+#     while rank_guess ≤ N
+#         extendX = rand([-1.0+0im, 1.0+0im], N, min(rank_guess,N-size(X,2)))
+#         X = [X extendX]
+#         AX = [AX Matrix(A*extendX)]
+#         ΘAX = fft!(rand([-1.0+0im, 1.0+0im], M).*AX)[rand(1:M,2rank_guess),:]
+#         rank_est = findfirst(x -> x ≤ 100*tol, svdvals!(ΘAX)[1:rank_guess])
+#         (rank_est !== nothing) && break
+#         rank_guess *= 2
 #     end
-#     extra_needed = new_rank_guess - R
-#     if extra_needed > 0
-#         Wadd = randn(eltype(b),N,extra_needed)
-#         W = [W Wadd]
-#         AW = [AW Matrix(A*Wadd)]
-#     else
-#         W = W[1:N,1:new_rank_guess]
-#         AW = AW[1:M,1:new_rank_guess]
-#     end
-#     return W * LAPACK.gelsy!(Matrix(A*W), b, tol)[1]
+#     isequal(rank_est, nothing) && (rank_est = N)
+#     X = X[:,1:rank_est]
+#     AX = AX[:,1:rank_est]
+#     qrAX = qr!(AX)
+#     b -> X * (qrAX \ b)
 # end
