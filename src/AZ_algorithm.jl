@@ -8,10 +8,29 @@ end
 
 # Low rank solver which uses rank_guess
 function low_rank_solver(A::LinearMap; rank_guess::Int=20, tol=1e-12)
-   X = rand([-1.0+0im, 1.0+0im], size(A,2), min(rank_guess,size(A,2)))
-   qrAX = qr!(Matrix(A*X))
-   b -> X * (qrAX \ b)
-end
+    X = rand([-1.0+0im, 1.0+0im], size(A,2), min(rank_guess,size(A,2)))
+    qrAX = qr!(Matrix(A*X))
+    b -> X * (qrAX \ b)
+ end
+
+# Adaptive low rank solver. Slows things down considerably.
+# function low_rank_solver(A::LinearMap; rank_guess::Int=20, tol=1e-12)
+#     N = size(A,2)
+#     X = rand([-1.0+0im, 1.0+0im], N, min(rank_guess,N))
+#     AX = Matrix(A*X)
+#     qrAX = qr(AX, ColumnNorm())
+#     rank_est = rank(qrAX.R)
+#     while rank_est + 10 > size(X,2)
+#         Xtend = rand([-1.0+0im, 1.0+0im], N, min(size(X,2), N-size(X,2))) 
+#         X = [X Xtend]
+#         AX = [AX Matrix(A*Xtend)]
+#         qrAX = qr(AX, ColumnNorm())
+#         rank_est = rank(qrAX.R)
+#     end
+#     X = X[:,1:rank_est+10]
+#     qrAX = qr!(AX[:,1:rank_est+10])
+#     b -> X * (qrAX \ b)
+# end
 
 # Adaptive low rank solver. Slows things down considerably.
 # Follows Algorithm 1 of Meier and Nakatsukasa 2021: https://arxiv.org/pdf/2105.07388.pdf

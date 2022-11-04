@@ -7,6 +7,7 @@ n = (20,22)
 @time F = FourierExtension2(f,Ω, n);
 abs(F(0.51,0.48)-f(0.51,0.48))
 
+
 contourf(F)
 
 
