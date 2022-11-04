@@ -1,7 +1,6 @@
 module FourierExtensions
 
-using LinearMaps
-using LinearAlgebra
+using LinearAlgebra, LinearMaps
 using FFTW
 using Plots
 

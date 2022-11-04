@@ -1,11 +1,11 @@
 # Represents a function on Ω ⊂ [0,1]² by a Fourier series on [0,1]²
-struct FourierExtension2{T}
+struct FourierExtension2
     Ω   # indicator function of Ω ⊂ [0,1]²
-    coeffs :: Matrix{T}
+    coeffs :: Matrix{ComplexF64}
 end
 
 # Constructor
-function FourierExtension2(f, Ω, n::Tuple{Int,Int}; oversamp = 2)
+function FourierExtension2(f::Function, Ω::Function, n::Tuple{Int,Int}; oversamp = 2)
     L = ceil.(Int, 2oversamp.*n)
     grid, gridΩrefs = grid_mask(Ω, L)
     N = (2n[1]+1)*(2n[2]+1)
@@ -15,14 +15,14 @@ function FourierExtension2(f, Ω, n::Tuple{Int,Int}; oversamp = 2)
     end
     b = complex(f.(grid[1], grid[2]')[gridΩrefs])
     M = length(b)
-    padded_data = Matrix{eltype(b)}(undef, L)
+    padded_data = Matrix{ComplexF64}(undef, L)
     ifftplan! = plan_bfft!(padded_data)
     fftplan! = plan_fft!(padded_data)
     A = LinearMap(
         (output,x) -> fourier_ext_2D_A!(output, x, n, gridΩrefs, ifftplan!, padded_data),
         (output,y) -> fourier_ext_2D_Astar!(output, y, n, gridΩrefs, fftplan!, padded_data),
         M, N; ismutating=true)
-    rank_guess = min(round(Int, 4*sqrt(N)*log10(N))+20, div(N,2))
+    rank_guess = min(ceil(Int, 4*sqrt(N)*log10(N))+20, div(N,2))
     coeffs = AZ_algorithm(A, A/prod(L), b; rank_guess)
     FourierExtension2(Ω, reshape(coeffs, 2n[1]+1, 2n[2]+1))
 end
@@ -64,25 +64,23 @@ end
 # Evaluates a 2D Fourier extension at (x,y)
 function (F::FourierExtension2)(x,y)
     nx, ny = div.(size(F.coeffs),2)
-    real(sum(F.coeffs[k+nx+1,j+ny+1] * exp((k*x + j*y)*2*π*im) for k = -nx:nx, j =-ny:ny))
+    real(sum(F.coeffs[k+nx+1,j+ny+1] * exp((k*x + j*y)*2*π*im) for k ∈ -nx:nx, j ∈ -ny:ny))
 end
 
-# Evaluates a 2D Fourier extension at the grid points F.Ω ∩ ((0:L1)/L1)×((0:L2)/L2)
+# Evaluates a 2D Fourier extension at F.Ω ∩ ((0:L1)/L1)×((0:L2)/L2). Throws error if L .< 2n+1.
 function grid_eval(F::FourierExtension2, L::Tuple{Int,Int})
-    nx, ny = div.(size(F.coeffs),2)
-    Lx, Ly = L
-    @assert (Lx ≥ 2nx+1) & (Ly ≥ 2ny+1)
-    padded_data = zeros(eltype(F.coeffs),L)
+    n = div.(size(F.coeffs),2)
     grid, gridΩrefs = grid_mask(F.Ω, L)
-    vals = Vector{eltype(padded_data)}(undef,length(gridΩrefs))
-    fourier_ext_2D_A!(vals, F.coeffs, (nx,ny), gridΩrefs, plan_bfft!(padded_data), padded_data)
+    vals = Vector{ComplexF64}(undef,length(gridΩrefs))
+    padded_data = Matrix{ComplexF64}(undef,L)
+    fourier_ext_2D_A!(vals, F.coeffs, n, gridΩrefs, plan_bfft!(padded_data), padded_data)
     grid, gridΩrefs, real(vals)
 end
 
 function Plots.contourf(F::FourierExtension2, L::Tuple{Int,Int}=(0,0))
     (L == (0,0)) && (L = max.(100, 4 .* size(F.coeffs)))
     grid, gridΩrefs, vals = grid_eval(F, L)
-    masked_vals = fill(eltype(vals)(NaN),L)
+    masked_vals = fill(NaN,L)
     @views masked_vals[gridΩrefs] .= vals
     contourf(grid[1], grid[2], masked_vals', aspect_ratio=1, xlabel="x", ylabel = "y")
 end

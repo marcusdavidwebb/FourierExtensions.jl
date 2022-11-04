@@ -1,5 +1,6 @@
-using Revise
-using FourierExtensions, Plots
+using Revise, Plots
+using FourierExtensions
+
 f = (x,y) -> exp(x) + y^2 + x - cos(y)
 Ω = (x,y) -> (x-.5)^2 + (y-.5)^2 < 0.2
 n = (20,22)
@@ -7,6 +8,7 @@ n = (20,22)
 abs(F(0.51,0.48)-f(0.51,0.48))
 
 contourf(F)
+
 
 # Timings
 
