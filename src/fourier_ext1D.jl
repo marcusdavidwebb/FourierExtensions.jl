@@ -4,7 +4,7 @@ struct FourierExtension
 end
 
 # Constructor
-function FourierExtension(f::Function, n::Int; oversamp=2)
+function FourierExtension(f::Function, n::Int; tol = 1e-12, oversamp=2)
     m = ceil(Int, oversamp*n)
     b = complex(f.(-1:1/m:1))
     padded_data = Vector{ComplexF64}(undef,4m)
@@ -15,7 +15,7 @@ function FourierExtension(f::Function, n::Int; oversamp=2)
         (output,y) -> fourier_ext_Astar!(output, y, n, m, fftplan!, padded_data),
         2m+1, 2n+1; ismutating=true)
     rank_guess = min(ceil(Int, 8*log(2n+1))+10, 2n+1)
-    FourierExtension(AZ_algorithm(A, A/4m, b; rank_guess))
+    FourierExtension(AZ_algorithm(A, A/4m, b; rank_guess, tol))
 end
 
 # Adaptive Constructor
