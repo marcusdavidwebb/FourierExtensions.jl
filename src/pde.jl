@@ -14,7 +14,7 @@ end
 function derivative(f::FourierExtension, order::Int = 1)
     n = (length(f.coeffs)-1) >> 1
     D = differentiation_matrix(n, order)
-    FourierExtension(f.γ, D*f.coeffs)
+    FourierExtension(D*f.coeffs)
 end
 
 function derivative(f::FourierExtension2, order::Tuple{Int,Int})
@@ -22,6 +22,21 @@ function derivative(f::FourierExtension2, order::Tuple{Int,Int})
     D = differentiation_matrix(n, order)
     FourierExtension2(f.Ω, reshape(D*f.coeffs[:], 2 .*n .+ 1))
 end
+
+function fe_1d_setup(n::Int; oversamp=2, T = Float64)
+    m = ceil(Int, oversamp*n)
+    padded_data = Vector{Complex{T}}(undef,4m)
+    ifftplan! = plan_bfft!(padded_data)
+    fftplan! = plan_fft!(padded_data)
+    A = LinearMap(
+        (output,x) -> fourier_ext_A!(output,x,n,m,ifftplan!,padded_data),
+        (output,y) -> fourier_ext_Astar!(output,y,n,m,fftplan!,padded_data),
+        2m+1, 2n+1; ismutating=true)
+    A, m
+end
+
+evalmatrix_1d_basis(n, x) = [exp(π*im*j*x/2) for j in -n:n]
+
 
 # This is a copy of the code in fourier_ext2D for now. Todo: clean up.
 function fe_2d_setup(Ω, n, oversamp, ::Type{T}) where {T}
