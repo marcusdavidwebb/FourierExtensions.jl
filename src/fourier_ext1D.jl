@@ -39,7 +39,7 @@ function FourierExtension(f::Function; tol=1e-12, oversamp=2, nmin=32, nmax=4096
     F
 end
 
-function fourier_ext_A!(output::Vector, x::Vector, n::Int, m::Int, ifftplan!, padded_data)
+function fourier_ext_A!(output::AbstractVector, x::AbstractVector, n::Int, m::Int, ifftplan!, padded_data)
     padded_data .= 0
     @views padded_data[1:n+1] = x[n+1:2n+1]
     @views padded_data[end-n+1:end] = x[1:n]
@@ -49,7 +49,7 @@ function fourier_ext_A!(output::Vector, x::Vector, n::Int, m::Int, ifftplan!, pa
     output
 end
 
-function fourier_ext_Astar!(output::Vector, y::Vector, n::Int, m::Int, fftplan!, padded_data)
+function fourier_ext_Astar!(output::AbstractVector, y::AbstractVector, n::Int, m::Int, fftplan!, padded_data)
     padded_data .= 0
     @views padded_data[1:m+1] = y[m+1:2m+1]
     @views padded_data[end-m+1:end] = y[1:m]
