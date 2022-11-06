@@ -1,5 +1,5 @@
 
-function AZ_algorithm(A::AbstractMatrix, Z::AbstractMatrix, b::Vector; rank_guess::Int=20, tol=1e-12, step_1_solver=undef)
+function AZ_algorithm(A, Z, b::Vector; rank_guess::Int=20, tol=1e-12, step_1_solver=undef)
     (step_1_solver == undef) && (step_1_solver = low_rank_solver((I - A*Z')*A; rank_guess, tol))
     x1 = step_1_solver((I - A*Z')*b)
     x2 = Z'*(b-A*x1)
@@ -7,7 +7,7 @@ function AZ_algorithm(A::AbstractMatrix, Z::AbstractMatrix, b::Vector; rank_gues
 end
 
 # Low rank solver which uses rank_guess
-function low_rank_solver(A::AbstractMatrix; rank_guess::Int=20, tol=1e-12)
+function low_rank_solver(A; rank_guess::Int=20, tol=1e-12)
     X = rand([-1.0+0im, 1.0+0im], size(A,2), min(rank_guess,size(A,2)))
     qrAX = qr!(Matrix(A*X))
     b -> X * (qrAX \ b)

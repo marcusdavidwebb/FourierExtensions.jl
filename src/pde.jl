@@ -27,18 +27,18 @@ function derivative(f::FourierExtension2, order::Tuple{Int,Int})
 end
 
 function padded_mv!(output, x, A::LinearMap, E, K)
-    N2 = length(output)
-    N1 = N2-K
-    output[1:N1] = A * x
-    output[N1+1:N1+K] = E * x
+    M2 = length(output)
+    M = M2-K
+    output[1:M] = A * x
+    output[M+1:M+K] = E * x
     output
 end
 
 function padded_mv_adj!(output, y, A::LinearMap, E, K)
-    N2 = length(output)
-    N1 = N2-K
-    output[1:N1] = A' * y
-    output[N1+1:N1+K] = E * y
+    N = length(output)
+    M = size(A,1)
+    output[:] = A' * y[1:M]
+    output[:] = output[:] + E'*y[M+1:M+K]
     output
 end
 
@@ -61,7 +61,6 @@ function solve_constant_coefficient_ode(DiffOp::AbstractVector, f, bc::Tuple{T,T
             tol = 1e-12, oversamp=2.0) where {T}
     A_map, m, grid = fe_1d_setup(n; oversamp, T)
     M, N = 2m+1, 2n+1
-    @assert length(grid) == M
     D = differentiation_matrix(n, 1)
     PD = sum(a*D^(k-1) for (k,a) in enumerate(DiffOp))
     PDinv = pinv(PD)
@@ -81,38 +80,64 @@ function solve_constant_coefficient_ode(DiffOp::AbstractVector, f, bc::Tuple{T,T
     b[M+1] = bc[1]
     b[M+2] = bc[2]
 
-    c1 = A1 \ b
+    @time c1 = A1 \ b
     F1 = FourierExtension(c1)
 
     ## AZ algorithm with dense matrices: option 1
-    A2 = zeros(Complex{T}, M+K, N)
-    A2[1:M,1:N] = A_dense * PD * PDinv
+    A2_dense = zeros(Complex{T}, M+K, N)
+    A2_dense[1:M,1:N] = A_dense * PD * PDinv
     A_bc = zeros(Complex{T}, K, N)
     A_bc[1,1:N] = evalmatrix_1d_basis(n, -one(T))
     A_bc[2,1:N] = evalmatrix_1d_basis(n, one(T))
-    A2[M+1:M+K,1:N] = A_bc * PDinv
+    A2_dense[M+1:M+K,1:N] = A_bc * PDinv
+
+    BC0 = zeros(Complex{T}, K, N)
+    Z2_dense = [A_dense/4m; BC0]
+
+    A2_map = LinearMap(
+        (output,x) -> padded_mv!(output, x, A_map*(PD*PDinv), A_bc * PDinv, K),
+        (output,y) -> padded_mv_adj!(output, y, A_map*(PD*PDinv), A_bc * PDinv, K),
+        M+K, N; ismutating=true
+    )
+    Z2_map = LinearMap(
+        (output,x) -> padded_mv!(output, x, A_map/4m, BC0, K),
+        (output,y) -> padded_mv_adj!(output, y, A_map/4m, BC0, K),
+        M+K, N; ismutating=true
+    )
 
     rank_guess = min(ceil(Int, 8*log(2n+1))+10, 2n+1)
-    Z2_dense = [A_dense/4m; zeros(Complex{T}, K, N)]
-    d2 = AZ_algorithm(A2, Z2_dense, b; rank_guess, tol)
+    # d2 = AZ_algorithm(A2_dense, Z2_dense, b; rank_guess, tol)
+    @time d2 = AZ_algorithm(A2_map, Z2_map, b; rank_guess, tol)
     c2 = PDinv * d2
     F2 = FourierExtension(c2)
 
     ## AZ algorithm with dense matrices: option 2
-    A3 = zeros(Complex{T}, M+K, N)
-    A3[1:M,1:N] = A_dense * PD
-    A3[M+1:M+K,1:N] = A_bc
+    A3_dense = zeros(Complex{T}, M+K, N)
+    A3_dense[1:M,1:N] = A_dense * PD
+    A3_dense[M+1:M+K,1:N] = A_bc
+    Z3_dense = [A_dense*PDinv'/4m; BC0]
+
+    A3_map = LinearMap(
+        (output,x) -> padded_mv!(output, x, A_map*PD, A_bc, K),
+        (output,y) -> padded_mv_adj!(output, y, A_map*PD, A_bc, K),
+        M+K, N; ismutating=true
+    )
+    Z3_map = LinearMap(
+        (output,x) -> padded_mv!(output, x, A_map*PDinv'/4m, BC0, K),
+        (output,y) -> padded_mv_adj!(output, y, A_map*PDinv'/4m, BC0, K),
+        M+K, N; ismutating=true
+    )
 
     rank_guess = min(ceil(Int, 8*log(2n+1))+10, 2n+1)
-    Z3_dense = [A_dense*PDinv'/4m; zeros(Complex{T}, K, N)]
-    c3 = AZ_algorithm(A3, Z3_dense, b; rank_guess, tol)
+    # c3 = AZ_algorithm(A3_dense, Z3_dense, b; rank_guess, tol)
+    @time c3 = AZ_algorithm(A3_map, Z3_map, b; rank_guess, tol)
     F3 = FourierExtension(c3)
 
     F1, F2, F3
 end
 
 # This is a copy of the code in fourier_ext2D for now. Todo: clean up.
-function fe_2d_setup(Ω, n, oversamp, ::Type{T}) where {T}
+function fe_2d_setup(Ω, n, oversamp)
     N = (2n[1]+1)*(2n[2]+1)
     L = ceil.(Int, 2oversamp.*n)
     grid, gridΩrefs = grid_mask(Ω, L)
@@ -121,7 +146,7 @@ function fe_2d_setup(Ω, n, oversamp, ::Type{T}) where {T}
         grid, gridΩrefs = grid_mask(Ω, L)
     end
     M = length(gridΩrefs)
-    padded_data = Matrix{Complex{T}}(undef, L)
+    padded_data = Matrix{ComplexF64}(undef, L)
     ifftplan! = plan_bfft!(padded_data)
     fftplan! = plan_fft!(padded_data)
     A = LinearMap(
@@ -144,10 +169,9 @@ boundary condition u = g(x,y) on ∂Ω.
 """
 function pde_matrix(Ω, ∂Ω, n, oversamp, K, f, p, g)
     oversamp = 2.0
-    T = Float64
-    L, M, N, Amap, grid, gridΩrefs = fe_2d_setup(Ω, n, oversamp, T)
-    A_f = Matrix{Complex{T}}(Amap)
-    Ap_f = Matrix{Complex{T}}(Amap')
+    L, M, N, Amap, grid, gridΩrefs = fe_2d_setup(Ω, n, oversamp)
+    A_f = Matrix{ComplexF64}(Amap)
+    Ap_f = Matrix{ComplexF64}(Amap')
     D = differentiation_matrix(n, (2,0)) + differentiation_matrix(n, (0,2))
     P = Diagonal(p.(grid[1], grid[2]')[gridΩrefs])
     b_f = complex(f.(grid[1], grid[2]')[gridΩrefs])
@@ -155,7 +179,7 @@ function pde_matrix(Ω, ∂Ω, n, oversamp, K, f, p, g)
     b_bc = [g(x[1],x[2]) for x in bc_pts]
 
     b = [b_f; b_bc]
-    A = zeros(Complex{T}, M+K, N)
+    A = zeros(ComplexF64, M+K, N)
     A[1:M,1:N] = A_f * D + P * A_f
     for k in 1:K
         Z = eval_2d_basis(n, bc_pts[k][1], bc_pts[k][2])
@@ -163,6 +187,6 @@ function pde_matrix(Ω, ∂Ω, n, oversamp, K, f, p, g)
     end
     c = A \ b
     coeffs = reshape(c, 2 .* n .+ 1)
-    F = FourierExtension2{Complex{T}}(Ω, coeffs)
+    F = FourierExtension2(Ω, coeffs)
     F, A, b
 end

@@ -1,6 +1,30 @@
 using FourierExtensions
 using LinearAlgebra, Plots
 
+# an ODE
+f = x -> x^2 + cos(x)
+g = x -> sin(x)+cos(x)
+
+n = 120
+T = Float64
+
+wavenumber = 2.0
+DiffOp = [wavenumber^2, 0, 1]  # 1D Helmholtz equation u'' + wavenumber^2*u
+
+F1,F2,F3 = FourierExtensions.solve_constant_coefficient_ode(DiffOp, f, (g(-1),g(1)), n);
+
+x0 = 0.4
+@show F1(0.4)
+@show F2(0.4)
+@show F3(0.4)
+
+@show abs(F1(-1)-g_1d(-1))
+@show abs(F1(1)-g_1d(1))
+G = derivative(F1, 2)
+@show abs(G(x0) + wavenumber^2*F1(x0) - f_1d(x0))
+
+
+
 p = (x,y) -> cos(x+y)
 f = (x,y) -> x^2 + y^2 + x - cos(y)
 g = (x,y) -> sin(x-y)
@@ -31,6 +55,7 @@ F, A, b = pde_matrix(doughnut, doughnut_boundary, n, oversamp, K, f, p, g)
 
 x = 0.6
 y = 0.3
-G = derivative(F, (2,2))
-G(x,y) + p(x,y) * F(x,y)
-f(x,y)
+Gxx = derivative(F, (2,0))
+Gyy = derivative(F, (0,2))
+@show Gxx(x,y) + Gyy(x,y) + p(x,y) * F(x,y)
+@show f(x,y)

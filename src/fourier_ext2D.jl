@@ -27,7 +27,7 @@ function FourierExtension2(f::Function, Ω::Function, n::Tuple{Int,Int}; tol= 1e
     FourierExtension2(Ω, reshape(coeffs, 2n[1]+1, 2n[2]+1))
 end
 
-function fourier_ext_2D_A!(output::Vector, coeffs::Vector, n::Tuple{Int,Int}, gridΩrefs, ifftplan!, padded_data)
+function fourier_ext_2D_A!(output::AbstractVector, coeffs::AbstractVector, n::Tuple{Int,Int}, gridΩrefs, ifftplan!, padded_data)
     nx, ny = n
     Lx, Ly = size(padded_data)
     c = reshape(coeffs, 2nx+1, 2ny+1)
@@ -41,7 +41,7 @@ function fourier_ext_2D_A!(output::Vector, coeffs::Vector, n::Tuple{Int,Int}, gr
     output
 end
 
-function fourier_ext_2D_Astar!(output::Vector, vals::Vector, n::Tuple{Int,Int}, gridΩrefs, fftplan!, padded_data)
+function fourier_ext_2D_Astar!(output::AbstractVector, vals::AbstractVector, n::Tuple{Int,Int}, gridΩrefs, fftplan!, padded_data)
     nx, ny = n
     Lx, Ly = size(padded_data)
     padded_data .= 0
