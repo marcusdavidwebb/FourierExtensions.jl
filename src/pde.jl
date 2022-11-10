@@ -80,7 +80,7 @@ function solve_constant_coefficient_ode(DiffOp::AbstractVector, f, bc::Tuple{T,T
     b[M+1] = bc[1]
     b[M+2] = bc[2]
 
-    @time c1 = A1 \ b
+    c1 = A1 \ b
     F1 = FourierExtension(c1)
 
     ## AZ algorithm with dense matrices: option 1
@@ -107,7 +107,7 @@ function solve_constant_coefficient_ode(DiffOp::AbstractVector, f, bc::Tuple{T,T
 
     rank_guess = min(ceil(Int, 8*log(2n+1))+10, 2n+1)
     # d2 = AZ_algorithm(A2_dense, Z2_dense, b; rank_guess, tol)
-    @time d2 = AZ_algorithm(A2_map, Z2_map, b; rank_guess, tol)
+    d2 = AZ_algorithm(A2_map, Z2_map, b; rank_guess, tol)
     c2 = PDinv * d2
     F2 = FourierExtension(c2)
 
@@ -130,7 +130,7 @@ function solve_constant_coefficient_ode(DiffOp::AbstractVector, f, bc::Tuple{T,T
 
     rank_guess = min(ceil(Int, 8*log(2n+1))+10, 2n+1)
     # c3 = AZ_algorithm(A3_dense, Z3_dense, b; rank_guess, tol)
-    @time c3 = AZ_algorithm(A3_map, Z3_map, b; rank_guess, tol)
+    c3 = AZ_algorithm(A3_map, Z3_map, b; rank_guess, tol)
     F3 = FourierExtension(c3)
 
     F1, F2, F3
@@ -163,6 +163,7 @@ end
 
 "Sample K points on a boundary, using a parameterization on [0,1]."
 sample_boundary(∂Ω, K) = ∂Ω.((0:K-1)/K)
+
 """
 Solve the PDE Δu + p(x,y)u = f(x,y) on a domain Ω, subject to Dirichlet
 boundary condition u = g(x,y) on ∂Ω.
@@ -189,4 +190,70 @@ function pde_matrix(Ω, ∂Ω, n, oversamp, K, f, p, g)
     coeffs = reshape(c, 2 .* n .+ 1)
     F = FourierExtension2(Ω, coeffs)
     F, A, b
+end
+
+
+function pde_Laplace()
+    PdeCoeffs = [1.0, 1.0]
+    PdeOrders = [(2,0), (0,2)]
+    PdeCoeffs, PdeOrders
+end
+
+function pde_Helmholtz(; wavenumber)
+    PdeCoeffs = [1.0, 1.0, wavenumber^2]
+    PdeOrders = [(2,0), (0,2), (0,0)]
+    PdeCoeffs, PdeOrders
+end
+
+
+"""
+Solve the given constant coefficient PDE.
+
+The PDE is specified as a vector of coefficients and a vector of corresponding
+orders. For example, the Helmholtz equation Δu + k^2 u has coefficients
+`[1, 1, k^2]` and orders `[(2,0), (0,2), (0,0)]`.
+
+The equation is solved using least squares collocation on the domain Ω, with
+the boundary condition enforced weakly at K points along the boundary ∂Ω.
+It is assumed that the boundary is parameterized from `[0,1]`.
+"""
+function solve_constant_coefficient_pde(PdeCoeffs, PdeOrders, Ω, ∂Ω, f, g, n, oversamp, K)
+    L, M, N, A_map, grid, gridΩrefs = fe_2d_setup(Ω, n, oversamp)
+    @assert length(PdeCoeffs) == length(PdeOrders)
+    D = differentiation_matrix.(Ref(n), PdeOrders)
+
+    PD = sum(PdeCoeffs[k] * D[k] for k in 1:length(D))
+    PDinv = pinv(PD)
+
+    b_f = complex(f.(grid[1], grid[2]')[gridΩrefs])
+    bc_pts = sample_boundary(∂Ω, K)
+    b_bc = [g(x[1],x[2]) for x in bc_pts]
+    b = [b_f; b_bc]
+
+    A_bc = zeros(ComplexF64, K, N)
+    for k in 1:K
+        Z = eval_2d_basis(n, bc_pts[k][1], bc_pts[k][2])
+        A_bc[k,:] = Z[:]
+    end
+
+    A_pde = LinearMap(
+        (output,x) -> padded_mv!(output, x, A_map*(PD*PDinv), A_bc * PDinv, K),
+        (output,y) -> padded_mv_adj!(output, y, A_map*(PD*PDinv), A_bc * PDinv, K),
+        M+K, N; ismutating=true
+    )
+    BC0 = zeros(ComplexF64, size(A_bc))
+    LL = ComplexF64(prod(L))
+    Z_pde = LinearMap(
+        (output,x) -> padded_mv!(output, x, A_map/LL, BC0, K),
+        (output,y) -> padded_mv_adj!(output, y, A_map/LL, BC0, K),
+        M+K, N; ismutating=true
+    )
+
+    rank_guess = min(ceil(Int, 8*sqrt(N)*log10(N))+10+2K, N)
+    tol = 1e-12
+    d = AZ_algorithm(A_pde, Z_pde, b; rank_guess, tol)
+    c = PDinv*d
+    coeffs = reshape(c, 2 .* n .+ 1)
+    F = FourierExtension2(Ω, coeffs)
+    F
 end

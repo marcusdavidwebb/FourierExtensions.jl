@@ -1,7 +1,9 @@
 using FourierExtensions
 using LinearAlgebra, Plots
 
+###########
 # an ODE
+###########
 f = x -> x^2 + cos(x)
 g = x -> sin(x)+cos(x)
 
@@ -25,6 +27,9 @@ G = derivative(F1, 2)
 
 
 
+#################################
+# Variable coefficient PDE
+#################################
 p = (x,y) -> cos(x+y)
 f = (x,y) -> x^2 + y^2 + x - cos(y)
 g = (x,y) -> sin(x-y)
@@ -59,3 +64,27 @@ Gxx = derivative(F, (2,0))
 Gyy = derivative(F, (0,2))
 @show Gxx(x,y) + Gyy(x,y) + p(x,y) * F(x,y)
 @show f(x,y)
+
+
+#################################
+# Constant coefficient PDE
+#################################
+
+PdeCoeffs, PdeOrders = FourierExtensions.pde_Helmholtz(wavenumber=2.0)
+f = (x,y) -> 0.0
+g = (x,y) -> 1.0
+
+K = 60
+oversamp = 2.0
+n = (20,25)
+Ω = doughnut
+∂Ω = doughnut_boundary
+
+F = FourierExtensions.solve_constant_coefficient_pde(PdeCoeffs, PdeOrders, Ω, ∂Ω, f, g, n, oversamp, K)
+
+x, y = 0.6, 0.3
+x_bnd, y_bnd = ∂Ω(0.23)
+Gxx = derivative(F, (2,0))
+Gyy = derivative(F, (0,2))
+@show Gxx(x,y) + Gyy(x,y) + wavenumber^2 * F(x,y) - f(x,y)
+@show abs(F(x_bnd, y_bnd)- g(x_bnd,y_bnd))
